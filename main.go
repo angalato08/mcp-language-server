@@ -13,6 +13,7 @@ import (
 
 	"github.com/isaacphi/mcp-language-server/internal/logging"
 	"github.com/isaacphi/mcp-language-server/internal/lsp"
+	"github.com/isaacphi/mcp-language-server/internal/tools"
 	"github.com/isaacphi/mcp-language-server/internal/watcher"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -84,6 +85,8 @@ func (s *mcpServer) initializeLSP() error {
 	if err := os.Chdir(s.config.workspaceDir); err != nil {
 		return fmt.Errorf("failed to change to workspace directory: %v", err)
 	}
+
+	tools.SetWorkspaceRoot(s.config.workspaceDir)
 
 	client, err := lsp.NewClient(s.config.lspCommand, s.config.lspArgs...)
 	if err != nil {

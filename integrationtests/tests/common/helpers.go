@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -92,33 +93,49 @@ func CleanupTestSuites(suites ...*TestSuite) {
 }
 
 // normalizePaths replaces absolute paths in the result with placeholder paths for consistent snapshots
-func normalizePaths(_ *testing.T, input string) string {
-	// No need to get the repo root - we're just looking for patterns
-
+func normalizePaths(input string) string {
 	// Simple approach: just replace any path segments that contain workspace/
+	// Use the LAST occurrence of /workspace/ to avoid matching user home directory paths
 	lines := strings.Split(input, "\n")
 	for i, line := range lines {
 		// Any line containing a path to a workspace file needs normalization
 		if strings.Contains(line, "/workspace/") {
-			// Extract everything after /workspace/
-			parts := strings.Split(line, "/workspace/")
-			if len(parts) > 1 {
-				// Replace with a simple placeholder path
-				lines[i] = "/TEST_OUTPUT/workspace/" + parts[1]
+			// Extract everything after the LAST /workspace/
+			idx := strings.LastIndex(line, "/workspace/")
+			if idx >= 0 {
+				lines[i] = "/TEST_OUTPUT/workspace/" + line[idx+len("/workspace/"):]
 			}
 		}
 		// Some tests, e.g. clangd, may include fully qualified paths to the base /workspaces/ directory
 		if strings.Contains(line, "/workspaces/") {
-			// Extract everything after /workspace/
-			parts := strings.Split(line, "/workspaces/")
-			if len(parts) > 1 {
-				// Replace with a simple placeholder path
-				lines[i] = "/TEST_OUTPUT/workspace/" + parts[1]
+			// Extract everything after the LAST /workspaces/
+			idx := strings.LastIndex(line, "/workspaces/")
+			if idx >= 0 {
+				lines[i] = "/TEST_OUTPUT/workspace/" + line[idx+len("/workspaces/"):]
 			}
 		}
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// Patterns that vary between LSP server versions and should be normalized
+var lspNormalizers = []struct {
+	re   *regexp.Regexp
+	repl string
+}{
+	// gopls struct size annotations: "// size=56 (0x38)" or "// size=56 (0x38), class=64 (0x40)"
+	{regexp.MustCompile(`// size=\d+ \(0x[0-9a-fA-F]+\)(?:, class=\d+ \(0x[0-9a-fA-F]+\))?`), "// size=<normalized>"},
+}
+
+// normalizeOutput applies all normalizations to make snapshots resilient to
+// environment differences (paths) and LSP version differences (annotations).
+func normalizeOutput(input string) string {
+	result := normalizePaths(input)
+	for _, n := range lspNormalizers {
+		result = n.re.ReplaceAllString(result, n.repl)
+	}
+	return result
 }
 
 // FindRepoRoot locates the repository root by looking for specific indicators
@@ -151,8 +168,8 @@ func FindRepoRoot() (string, error) {
 // SnapshotTest compares the actual result against an expected result file
 // If the file doesn't exist or UPDATE_SNAPSHOTS=true env var is set, it will update the snapshot
 func SnapshotTest(t *testing.T, languageName, toolName, testName, actualResult string) {
-	// Normalize paths in the result to avoid system-specific paths in snapshots
-	actualResult = normalizePaths(t, actualResult)
+	// Normalize output to avoid system-specific paths and LSP version differences in snapshots
+	actualResult = normalizeOutput(actualResult)
 
 	// Get the absolute path to the snapshots directory
 	repoRoot, err := FindRepoRoot()

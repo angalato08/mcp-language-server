@@ -1,5 +1,5 @@
 ```go
-type SharedInterface interface { // size=16 (0x10)
+type SharedInterface interface { // size=<normalized>
 	Process() error
 	GetName() string
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/isaacphi/mcp-language-server/internal/protocol"
 )
 
-func FindReferences(ctx context.Context, client *lsp.Client, symbolName string) (string, error) {
+func FindReferences(ctx context.Context, client *lsp.Client, symbolName string, limit int) (string, error) {
 	// Get context lines from environment variable
 	contextLines := 5
 	if envLines := os.Getenv("LSP_CONTEXT_LINES"); envLines != "" {
@@ -66,6 +66,13 @@ func FindReferences(ctx context.Context, client *lsp.Client, symbolName string) 
 			return "", fmt.Errorf("failed to get references: %v", err)
 		}
 
+		totalRefCount := len(refs)
+
+		// Apply limit if specified
+		if limit > 0 && len(refs) > limit {
+			refs = refs[:limit]
+		}
+
 		// Group references by file
 		refsByFile := make(map[protocol.DocumentUri][]protocol.Location)
 		for _, ref := range refs {
@@ -79,20 +86,26 @@ func FindReferences(ctx context.Context, client *lsp.Client, symbolName string) 
 		}
 		sort.Strings(uris)
 
+		// Prepend limit notice if results were truncated
+		if limit > 0 && totalRefCount > limit {
+			allReferences = append(allReferences, fmt.Sprintf("Showing %d of %d references", limit, totalRefCount))
+		}
+
 		// Process each file's references in sorted order
 		for _, uriStr := range uris {
 			uri := protocol.DocumentUri(uriStr)
 			fileRefs := refsByFile[uri]
-			filePath := strings.TrimPrefix(uriStr, "file://")
+			absPath := strings.TrimPrefix(uriStr, "file://")
+			displayPath := RelativePath(absPath)
 
 			// Format file header
 			fileInfo := fmt.Sprintf("---\n\n%s\nReferences in File: %d\n",
-				filePath,
+				displayPath,
 				len(fileRefs),
 			)
 
 			// Format locations with context
-			fileContent, err := os.ReadFile(filePath)
+			fileContent, err := os.ReadFile(absPath)
 			if err != nil {
 				// Log error but continue with other files
 				allReferences = append(allReferences, fileInfo+"\nError reading file: "+err.Error())

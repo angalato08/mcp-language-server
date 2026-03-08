@@ -454,3 +454,80 @@ func TestFormatLinesWithRanges(t *testing.T) {
 		})
 	}
 }
+
+func TestRelativePath(t *testing.T) {
+	// Save and restore workspace root
+	originalRoot := workspaceRoot
+	defer func() { workspaceRoot = originalRoot }()
+
+	testCases := []struct {
+		name     string
+		root     string
+		absPath  string
+		expected string
+	}{
+		{
+			name:     "Empty root returns path as-is",
+			root:     "",
+			absPath:  "/home/user/project/src/main.go",
+			expected: "/home/user/project/src/main.go",
+		},
+		{
+			name:     "Path under workspace root",
+			root:     "/home/user/project",
+			absPath:  "/home/user/project/src/main.go",
+			expected: "src/main.go",
+		},
+		{
+			name:     "Path is workspace root itself",
+			root:     "/home/user/project",
+			absPath:  "/home/user/project",
+			expected: ".",
+		},
+		{
+			name:     "Path outside workspace root",
+			root:     "/home/user/project",
+			absPath:  "/other/path/file.go",
+			expected: "../../../other/path/file.go",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			workspaceRoot = tc.root
+			result := RelativePath(tc.absPath)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestTrimResponse(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Short response unchanged",
+			input:    "hello world",
+			expected: "hello world",
+		},
+		{
+			name:     "Exactly at limit unchanged",
+			input:    strings.Repeat("a", maxResponseSize),
+			expected: strings.Repeat("a", maxResponseSize),
+		},
+		{
+			name:     "Over limit gets truncated",
+			input:    strings.Repeat("a", maxResponseSize+100),
+			expected: strings.Repeat("a", maxResponseSize) + "\n... (response truncated)",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := TrimResponse(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}

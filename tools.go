@@ -92,7 +92,7 @@ func (s *mcpServer) registerTools() error {
 			coreLogger.Error("Failed to apply edits: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to apply edits: %v", err)), nil
 		}
-		return mcp.NewToolResultText(response), nil
+		return mcp.NewToolResultText(tools.TrimResponse(response)), nil
 	})
 
 	readDefinitionTool := mcp.NewTool("definition",
@@ -116,7 +116,7 @@ func (s *mcpServer) registerTools() error {
 			coreLogger.Error("Failed to get definition: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get definition: %v", err)), nil
 		}
-		return mcp.NewToolResultText(text), nil
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	findReferencesTool := mcp.NewTool("references",
@@ -124,6 +124,9 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithString("symbolName",
 			mcp.Required(),
 			mcp.Description("The name of the symbol to search for (e.g. 'mypackage.MyFunction', 'MyType')"),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of references to return. Default 30. Use -1 for all."),
 		),
 	)
 
@@ -134,13 +137,18 @@ func (s *mcpServer) registerTools() error {
 			return mcp.NewToolResultError("symbolName must be a string"), nil
 		}
 
+		limit := 30 // default
+		if limitArg, ok := request.Params.Arguments["limit"].(float64); ok {
+			limit = int(limitArg)
+		}
+
 		coreLogger.Debug("Executing references for symbol: %s", symbolName)
-		text, err := tools.FindReferences(s.ctx, s.lspClient, symbolName)
+		text, err := tools.FindReferences(s.ctx, s.lspClient, symbolName, limit)
 		if err != nil {
 			coreLogger.Error("Failed to find references: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", err)), nil
 		}
-		return mcp.NewToolResultText(text), nil
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	getDiagnosticsTool := mcp.NewTool("diagnostics",
@@ -156,6 +164,9 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithBoolean("showLineNumbers",
 			mcp.Description("If true, adds line numbers to the output"),
 			mcp.DefaultBool(true),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of diagnostics to return. Default 20. Use -1 for all."),
 		),
 	)
 
@@ -176,13 +187,18 @@ func (s *mcpServer) registerTools() error {
 			showLineNumbers = showLineNumbersArg
 		}
 
+		limit := 20 // default
+		if limitArg, ok := request.Params.Arguments["limit"].(float64); ok {
+			limit = int(limitArg)
+		}
+
 		coreLogger.Debug("Executing diagnostics for file: %s", filePath)
-		text, err := tools.GetDiagnosticsForFile(s.ctx, s.lspClient, filePath, contextLines, showLineNumbers)
+		text, err := tools.GetDiagnosticsForFile(s.ctx, s.lspClient, filePath, contextLines, showLineNumbers, limit)
 		if err != nil {
 			coreLogger.Error("Failed to get diagnostics: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
 		}
-		return mcp.NewToolResultText(text), nil
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	// Uncomment to add codelens tools
@@ -299,7 +315,7 @@ func (s *mcpServer) registerTools() error {
 			coreLogger.Error("Failed to get hover information: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get hover information: %v", err)), nil
 		}
-		return mcp.NewToolResultText(text), nil
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	renameSymbolTool := mcp.NewTool("rename_symbol",
@@ -360,7 +376,7 @@ func (s *mcpServer) registerTools() error {
 			coreLogger.Error("Failed to rename symbol: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to rename symbol: %v", err)), nil
 		}
-		return mcp.NewToolResultText(text), nil
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	coreLogger.Info("Successfully registered all MCP tools")

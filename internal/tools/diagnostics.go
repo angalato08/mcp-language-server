@@ -13,7 +13,7 @@ import (
 )
 
 // GetDiagnosticsForFile retrieves diagnostics for a specific file from the language server
-func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath string, contextLines int, showLineNumbers bool) (string, error) {
+func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath string, contextLines int, showLineNumbers bool, limit int) (string, error) {
 	// Override with environment variable if specified
 	if envLines := os.Getenv("LSP_CONTEXT_LINES"); envLines != "" {
 		if val, err := strconv.Atoi(envLines); err == nil && val >= 0 {
@@ -43,14 +43,28 @@ func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath str
 	diagnostics := client.GetFileDiagnostics(uri)
 
 	if len(diagnostics) == 0 {
-		return "No diagnostics found for " + filePath, nil
+		return "No diagnostics found for " + RelativePath(filePath), nil
 	}
+
+	totalCount := len(diagnostics)
+
+	// Apply limit if specified
+	if limit > 0 && len(diagnostics) > limit {
+		diagnostics = diagnostics[:limit]
+	}
+
+	displayPath := RelativePath(filePath)
 
 	// Format file header
 	fileInfo := fmt.Sprintf("%s\nDiagnostics in File: %d\n",
-		filePath,
-		len(diagnostics),
+		displayPath,
+		totalCount,
 	)
+
+	// Prepend limit notice if results were truncated
+	if limit > 0 && totalCount > limit {
+		fileInfo += fmt.Sprintf("Showing %d of %d diagnostics\n", limit, totalCount)
+	}
 
 	// Create a summary of all the diagnostics
 	var diagSummaries []string

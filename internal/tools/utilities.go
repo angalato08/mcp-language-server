@@ -3,12 +3,44 @@ package tools
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/isaacphi/mcp-language-server/internal/protocol"
 )
+
+var workspaceRoot string
+
+// SetWorkspaceRoot sets the workspace root directory used for computing relative paths.
+func SetWorkspaceRoot(root string) {
+	workspaceRoot = root
+}
+
+// RelativePath converts an absolute file path to a workspace-relative path.
+// If the path cannot be made relative, it is returned as-is.
+func RelativePath(absPath string) string {
+	if workspaceRoot == "" {
+		return absPath
+	}
+	rel, err := filepath.Rel(workspaceRoot, absPath)
+	if err != nil {
+		return absPath
+	}
+	return rel
+}
+
+// TrimResponse truncates a response string to maxResponseSize characters,
+// appending a notice if truncation occurs.
+const maxResponseSize = 8000
+
+func TrimResponse(response string) string {
+	if len(response) <= maxResponseSize {
+		return response
+	}
+	return response[:maxResponseSize] + "\n... (response truncated)"
+}
 
 func ExtractTextFromLocation(loc protocol.Location) (string, error) {
 	path := strings.TrimPrefix(string(loc.URI), "file://")

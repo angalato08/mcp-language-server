@@ -109,7 +109,7 @@ func RenameSymbol(ctx context.Context, client *lsp.Client, filePath string, line
 
 	// Write sorted changes to the output builder
 	for _, change := range allChanges {
-		locationsBuilder.WriteString(fmt.Sprintf("%s: %s\n", change.URI, change.Locations))
+		locationsBuilder.WriteString(fmt.Sprintf("%s: %s\n", RelativePath(strings.TrimPrefix(change.URI, "file://")), change.Locations))
 	}
 
 	// Apply the workspace edit to files:workspaceEdit

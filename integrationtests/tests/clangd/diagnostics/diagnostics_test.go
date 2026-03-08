@@ -48,7 +48,7 @@ func TestDiagnostics(t *testing.T) {
 		openAllFilesAndWait(suite, ctx)
 
 		filePath := filepath.Join(suite.WorkspaceDir, "src/clean.cpp")
-		result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, filePath, 2, true)
+		result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, filePath, 2, true, -1)
 		if err != nil {
 			t.Fatalf("GetDiagnosticsForFile failed: %v", err)
 		}
@@ -73,7 +73,7 @@ func TestDiagnostics(t *testing.T) {
 		openAllFilesAndWait(suite, ctx)
 
 		filePath := filepath.Join(suite.WorkspaceDir, "src/main.cpp")
-		result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, filePath, 2, true)
+		result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, filePath, 2, true, -1)
 		if err != nil {
 			t.Fatalf("GetDiagnosticsForFile failed: %v", err)
 		}
