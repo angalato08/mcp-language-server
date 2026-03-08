@@ -87,7 +87,7 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing edit_file for file: %s", filePath)
-		client, err := s.lspClient.GetClient()
+		client, err := s.router.ClientForFile(s.ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -115,16 +115,22 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing definition for symbol: %s", symbolName)
-		client, err := s.lspClient.GetClient()
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+
+		// Symbol-based: try all active clients, return first success
+		clients := s.router.ActiveClients()
+		if len(clients) == 0 {
+			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
 		}
-		text, err := tools.ReadDefinition(s.ctx, client, symbolName)
-		if err != nil {
-			coreLogger.Error("Failed to get definition: %v", err)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get definition: %v", err)), nil
+		var lastErr error
+		for _, client := range clients {
+			text, err := tools.ReadDefinition(s.ctx, client, symbolName)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 		}
-		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get definition: %v", lastErr)), nil
 	})
 
 	findReferencesTool := mcp.NewTool("references",
@@ -151,16 +157,22 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing references for symbol: %s", symbolName)
-		client, err := s.lspClient.GetClient()
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+
+		// Symbol-based: try all active clients, return first success
+		clients := s.router.ActiveClients()
+		if len(clients) == 0 {
+			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
 		}
-		text, err := tools.FindReferences(s.ctx, client, symbolName, limit)
-		if err != nil {
-			coreLogger.Error("Failed to find references: %v", err)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", err)), nil
+		var lastErr error
+		for _, client := range clients {
+			text, err := tools.FindReferences(s.ctx, client, symbolName, limit)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 		}
-		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+		return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", lastErr)), nil
 	})
 
 	getDiagnosticsTool := mcp.NewTool("diagnostics",
@@ -205,7 +217,7 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing diagnostics for file: %s", filePath)
-		client, err := s.lspClient.GetClient()
+		client, err := s.router.ClientForFile(s.ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -326,7 +338,7 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing hover for file: %s line: %d column: %d", filePath, line, column)
-		client, err := s.lspClient.GetClient()
+		client, err := s.router.ClientForFile(s.ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -391,7 +403,7 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing rename_symbol for file: %s line: %d column: %d newName: %s", filePath, line, column, newName)
-		client, err := s.lspClient.GetClient()
+		client, err := s.router.ClientForFile(s.ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}

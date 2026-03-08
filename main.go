@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,29 +22,83 @@ import (
 // Create a logger for the core component
 var coreLogger = logging.NewLogger(logging.Core)
 
+// stringSlice implements flag.Value for multi-value --lsp flags.
+type stringSlice []string
+
+func (s *stringSlice) String() string { return strings.Join(*s, ", ") }
+func (s *stringSlice) Set(val string) error {
+	*s = append(*s, val)
+	return nil
+}
+
 type config struct {
 	workspaceDir string
-	lspCommand   string
-	lspArgs      []string
+	lspConfigs   []lsp.LanguageConfig
 }
 
 type mcpServer struct {
 	config           config
-	lspClient        *lsp.RestartableClient
+	router           *lsp.Router
 	mcpServer        *server.MCPServer
 	ctx              context.Context
 	cancelFunc       context.CancelFunc
 	workspaceWatcher *watcher.WorkspaceWatcher
 }
 
+// parseLSPFlags converts raw --lsp flag values and trailing args into LanguageConfigs.
+// Supported syntaxes:
+//   - "go:gopls"  → explicit lang:command
+//   - "gopls"     → legacy, auto-detect via KnownLSPCommands
+func parseLSPFlags(flags []string, trailingArgs []string) ([]lsp.LanguageConfig, error) {
+	if len(flags) == 0 {
+		return nil, fmt.Errorf("at least one --lsp flag is required")
+	}
+
+	var configs []lsp.LanguageConfig
+	for _, f := range flags {
+		var langID, command string
+		if idx := strings.Index(f, ":"); idx > 0 {
+			// Explicit syntax: "go:gopls" or "python:pyright-langserver --stdio"
+			langID = f[:idx]
+			command = f[idx+1:]
+		} else {
+			// Legacy syntax: just the command name
+			command = f
+			base := filepath.Base(command)
+			if detected, ok := lsp.KnownLSPCommands[base]; ok {
+				langID = detected
+			} else {
+				langID = "unknown"
+			}
+		}
+
+		configs = append(configs, lsp.LanguageConfig{
+			LangID:  langID,
+			Command: command,
+		})
+	}
+
+	// Trailing args (after --) apply to the last/only LSP config (backward compat)
+	if len(trailingArgs) > 0 && len(configs) > 0 {
+		configs[len(configs)-1].Args = trailingArgs
+	}
+
+	// Validate commands exist
+	for _, cfg := range configs {
+		if _, err := exec.LookPath(cfg.Command); err != nil {
+			return nil, fmt.Errorf("LSP command not found: %s", cfg.Command)
+		}
+	}
+
+	return configs, nil
+}
+
 func parseConfig() (*config, error) {
 	cfg := &config{}
+	var lspFlags stringSlice
 	flag.StringVar(&cfg.workspaceDir, "workspace", "", "Path to workspace directory")
-	flag.StringVar(&cfg.lspCommand, "lsp", "", "LSP command to run (args should be passed after --)")
+	flag.Var(&lspFlags, "lsp", "LSP server to use. Format: lang:command or just command. Can be specified multiple times.")
 	flag.Parse()
-
-	// Get remaining args after -- as LSP arguments
-	cfg.lspArgs = flag.Args()
 
 	// Validate workspace directory
 	if cfg.workspaceDir == "" {
@@ -60,14 +115,12 @@ func parseConfig() (*config, error) {
 		return nil, fmt.Errorf("workspace directory does not exist: %s", cfg.workspaceDir)
 	}
 
-	// Validate LSP command
-	if cfg.lspCommand == "" {
-		return nil, fmt.Errorf("LSP command is required")
+	// Parse LSP flags
+	lspConfigs, err := parseLSPFlags(lspFlags, flag.Args())
+	if err != nil {
+		return nil, err
 	}
-
-	if _, err := exec.LookPath(cfg.lspCommand); err != nil {
-		return nil, fmt.Errorf("LSP command not found: %s", cfg.lspCommand)
-	}
+	cfg.lspConfigs = lspConfigs
 
 	return cfg, nil
 }
@@ -88,15 +141,13 @@ func (s *mcpServer) initializeLSP() error {
 
 	tools.SetWorkspaceRoot(s.config.workspaceDir)
 
-	rc := lsp.NewRestartableClient(s.config.lspCommand, s.config.workspaceDir, s.config.lspArgs...)
-	if err := rc.Start(s.ctx); err != nil {
-		return err
-	}
-	s.lspClient = rc
-	s.workspaceWatcher = watcher.NewWorkspaceWatcher(rc)
+	router := lsp.NewRouter(s.ctx, s.config.workspaceDir, s.config.lspConfigs)
+	s.router = router
+	s.workspaceWatcher = watcher.NewWorkspaceWatcher(router)
 
 	go s.workspaceWatcher.WatchWorkspace(s.ctx, s.config.workspaceDir)
-	return rc.WaitForServerReady(s.ctx)
+	// No WaitForServerReady — clients start lazily on first tool call
+	return nil
 }
 
 func (s *mcpServer) start() error {
@@ -193,41 +244,9 @@ func cleanup(s *mcpServer, done chan struct{}) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if s.lspClient != nil {
-		coreLogger.Info("Closing open files")
-		s.lspClient.CloseAllFiles(ctx)
-
-		// Create a shorter timeout context for the shutdown request
-		shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 500*time.Millisecond)
-		defer shutdownCancel()
-
-		// Run shutdown in a goroutine with timeout to avoid blocking if LSP doesn't respond
-		shutdownDone := make(chan struct{})
-		go func() {
-			coreLogger.Info("Sending shutdown request")
-			if err := s.lspClient.Shutdown(shutdownCtx); err != nil {
-				coreLogger.Error("Shutdown request failed: %v", err)
-			}
-			close(shutdownDone)
-		}()
-
-		// Wait for shutdown with timeout
-		select {
-		case <-shutdownDone:
-			coreLogger.Info("Shutdown request completed")
-		case <-time.After(1 * time.Second):
-			coreLogger.Warn("Shutdown request timed out, proceeding with exit")
-		}
-
-		coreLogger.Info("Sending exit notification")
-		if err := s.lspClient.Exit(ctx); err != nil {
-			coreLogger.Error("Exit notification failed: %v", err)
-		}
-
-		coreLogger.Info("Closing restartable LSP client")
-		if err := s.lspClient.Close(); err != nil {
-			coreLogger.Error("Failed to close LSP client: %v", err)
-		}
+	if s.router != nil {
+		coreLogger.Info("Closing all LSP clients via router")
+		s.router.Close(ctx)
 	}
 
 	// Send signal to the done channel
