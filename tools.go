@@ -87,7 +87,11 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing edit_file for file: %s", filePath)
-		response, err := tools.ApplyTextEdits(s.ctx, s.lspClient, filePath, edits)
+		client, err := s.lspClient.GetClient()
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		response, err := tools.ApplyTextEdits(s.ctx, client, filePath, edits)
 		if err != nil {
 			coreLogger.Error("Failed to apply edits: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to apply edits: %v", err)), nil
@@ -111,7 +115,11 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing definition for symbol: %s", symbolName)
-		text, err := tools.ReadDefinition(s.ctx, s.lspClient, symbolName)
+		client, err := s.lspClient.GetClient()
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.ReadDefinition(s.ctx, client, symbolName)
 		if err != nil {
 			coreLogger.Error("Failed to get definition: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get definition: %v", err)), nil
@@ -143,7 +151,11 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing references for symbol: %s", symbolName)
-		text, err := tools.FindReferences(s.ctx, s.lspClient, symbolName, limit)
+		client, err := s.lspClient.GetClient()
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.FindReferences(s.ctx, client, symbolName, limit)
 		if err != nil {
 			coreLogger.Error("Failed to find references: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", err)), nil
@@ -193,7 +205,11 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing diagnostics for file: %s", filePath)
-		text, err := tools.GetDiagnosticsForFile(s.ctx, s.lspClient, filePath, contextLines, showLineNumbers, limit)
+		client, err := s.lspClient.GetClient()
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.GetDiagnosticsForFile(s.ctx, client, filePath, contextLines, showLineNumbers, limit)
 		if err != nil {
 			coreLogger.Error("Failed to get diagnostics: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
@@ -310,7 +326,11 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing hover for file: %s line: %d column: %d", filePath, line, column)
-		text, err := tools.GetHoverInfo(s.ctx, s.lspClient, filePath, line, column)
+		client, err := s.lspClient.GetClient()
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.GetHoverInfo(s.ctx, client, filePath, line, column)
 		if err != nil {
 			coreLogger.Error("Failed to get hover information: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get hover information: %v", err)), nil
@@ -371,7 +391,11 @@ func (s *mcpServer) registerTools() error {
 		}
 
 		coreLogger.Debug("Executing rename_symbol for file: %s line: %d column: %d newName: %s", filePath, line, column, newName)
-		text, err := tools.RenameSymbol(s.ctx, s.lspClient, filePath, line, column, newName)
+		client, err := s.lspClient.GetClient()
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.RenameSymbol(s.ctx, client, filePath, line, column, newName)
 		if err != nil {
 			coreLogger.Error("Failed to rename symbol: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to rename symbol: %v", err)), nil

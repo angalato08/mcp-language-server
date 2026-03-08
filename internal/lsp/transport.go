@@ -4,11 +4,17 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/isaacphi/mcp-language-server/internal/logging"
+)
+
+var (
+	ErrClientDead      = errors.New("LSP server process has died")
+	ErrServerRestarting = errors.New("LSP server is restarting, please retry in a moment")
 )
 
 // Create component-specific loggers
@@ -96,6 +102,7 @@ func ReadMessage(r *bufio.Reader) (*Message, error) {
 
 // handleMessages reads and dispatches messages in a loop
 func (c *Client) handleMessages() {
+	defer c.doneOnce.Do(func() { close(c.done) })
 	for {
 		msg, err := ReadMessage(c.stdout)
 		if err != nil {
@@ -223,8 +230,16 @@ func (c *Client) Call(ctx context.Context, method string, params any, result any
 
 	lspLogger.Debug("Waiting for response to request ID: %v", msg.ID)
 
-	// Wait for response
-	resp := <-ch
+	// Wait for response, but also detect server death and context cancellation
+	var resp *Message
+	select {
+	case resp = <-ch:
+		// Got response
+	case <-c.done:
+		return ErrClientDead
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
 	lspLogger.Debug("Received response for request ID: %v", msg.ID)
 
@@ -251,6 +266,12 @@ func (c *Client) Call(ctx context.Context, method string, params any, result any
 
 // Notify sends a notification (a request without an ID that doesn't expect a response)
 func (c *Client) Notify(ctx context.Context, method string, params any) error {
+	select {
+	case <-c.done:
+		return ErrClientDead
+	default:
+	}
+
 	lspLogger.Debug("Sending notification: method=%s", method)
 
 	msg, err := NewNotification(method, params)

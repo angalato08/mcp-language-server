@@ -48,6 +48,10 @@ type Client struct {
 	// Files are currently opened by the LSP
 	openFiles   map[string]*OpenFileInfo
 	openFilesMu sync.RWMutex
+
+	// Closed when handleMessages exits (LSP process died)
+	done     chan struct{}
+	doneOnce sync.Once
 }
 
 func NewClient(command string, args ...string) (*Client, error) {
@@ -81,6 +85,7 @@ func NewClient(command string, args ...string) (*Client, error) {
 		diagnostics:           make(map[protocol.DocumentUri][]protocol.Diagnostic),
 		diagnosticReady:       make(map[protocol.DocumentUri]chan struct{}),
 		openFiles:             make(map[string]*OpenFileInfo),
+		done:                  make(chan struct{}),
 	}
 
 	// Start the LSP server process

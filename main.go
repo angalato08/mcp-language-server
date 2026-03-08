@@ -29,7 +29,7 @@ type config struct {
 
 type mcpServer struct {
 	config           config
-	lspClient        *lsp.Client
+	lspClient        *lsp.RestartableClient
 	mcpServer        *server.MCPServer
 	ctx              context.Context
 	cancelFunc       context.CancelFunc
@@ -88,22 +88,15 @@ func (s *mcpServer) initializeLSP() error {
 
 	tools.SetWorkspaceRoot(s.config.workspaceDir)
 
-	client, err := lsp.NewClient(s.config.lspCommand, s.config.lspArgs...)
-	if err != nil {
-		return fmt.Errorf("failed to create LSP client: %v", err)
+	rc := lsp.NewRestartableClient(s.config.lspCommand, s.config.workspaceDir, s.config.lspArgs...)
+	if err := rc.Start(s.ctx); err != nil {
+		return err
 	}
-	s.lspClient = client
-	s.workspaceWatcher = watcher.NewWorkspaceWatcher(client)
-
-	initResult, err := client.InitializeLSPClient(s.ctx, s.config.workspaceDir)
-	if err != nil {
-		return fmt.Errorf("initialize failed: %v", err)
-	}
-
-	coreLogger.Debug("Server capabilities: %+v", initResult.Capabilities)
+	s.lspClient = rc
+	s.workspaceWatcher = watcher.NewWorkspaceWatcher(rc)
 
 	go s.workspaceWatcher.WatchWorkspace(s.ctx, s.config.workspaceDir)
-	return client.WaitForServerReady(s.ctx)
+	return rc.WaitForServerReady(s.ctx)
 }
 
 func (s *mcpServer) start() error {
@@ -231,7 +224,7 @@ func cleanup(s *mcpServer, done chan struct{}) {
 			coreLogger.Error("Exit notification failed: %v", err)
 		}
 
-		coreLogger.Info("Closing LSP client")
+		coreLogger.Info("Closing restartable LSP client")
 		if err := s.lspClient.Close(); err != nil {
 			coreLogger.Error("Failed to close LSP client: %v", err)
 		}
