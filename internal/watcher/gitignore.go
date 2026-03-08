@@ -1,7 +1,7 @@
 package watcher
 
 import (
-	"github.com/isaacphi/mcp-language-server/internal/watcher/common"
+	"github.com/angalato08/mcp-language-server/internal/watcher/common"
 )
 
 // GitignoreMatcher provides a simple wrapper around the go-gitignore package

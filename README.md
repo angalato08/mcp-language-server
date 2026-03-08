@@ -1,9 +1,9 @@
 # MCP Language Server
 
-[![Go Tests](https://github.com/isaacphi/mcp-language-server/actions/workflows/go.yml/badge.svg)](https://github.com/isaacphi/mcp-language-server/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/isaacphi/mcp-language-server)](https://goreportcard.com/report/github.com/isaacphi/mcp-language-server)
-[![GoDoc](https://pkg.go.dev/badge/github.com/isaacphi/mcp-language-server)](https://pkg.go.dev/github.com/isaacphi/mcp-language-server)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/isaacphi/mcp-language-server)](https://github.com/isaacphi/mcp-language-server/blob/main/go.mod)
+[![Go Tests](https://github.com/angalato08/mcp-language-server/actions/workflows/go.yml/badge.svg)](https://github.com/angalato08/mcp-language-server/actions/workflows/go.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/angalato08/mcp-language-server)](https://goreportcard.com/report/github.com/angalato08/mcp-language-server)
+[![GoDoc](https://pkg.go.dev/badge/github.com/angalato08/mcp-language-server)](https://pkg.go.dev/github.com/angalato08/mcp-language-server)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/isaacphi/mcp-language-server)](https://github.com/angalato08/mcp-language-server/blob/main/go.mod)
 
 This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs and exposes one or more [language servers](https://microsoft.github.io/language-server-protocol/) to LLMs. Not a language server for MCP, whatever that would be.
 
@@ -16,7 +16,7 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 ## Setup
 
 1. **Install Go**: Follow instructions at <https://golang.org/doc/install>
-2. **Install or update this server**: `go install github.com/isaacphi/mcp-language-server@latest`
+2. **Install or update this server**: `go install github.com/angalato08/mcp-language-server@latest`
 3. **Install language servers**: Install the LSP(s) for the languages you use in your project.
 4. **Configure your MCP client**: _follow one of the guides below_
 
@@ -223,7 +223,7 @@ Please keep PRs small and open Issues first for anything substantial. AI slop O.
 Clone the repo:
 
 ```bash
-git clone https://github.com/isaacphi/mcp-language-server.git
+git clone https://github.com/angalato08/mcp-language-server.git
 cd mcp-language-server
 ```
 
@@ -282,11 +282,11 @@ There is a snapshot test suite that makes it a lot easier to try out changes to 
 You will need the language servers installed locally to run them. There are tests for go, rust, python, and typescript.
 
 ```
-integrationtests/
+integration_tests/
 ├── tests/        # Tests are in this folder
 ├── snapshots/    # Snapshots of tool outputs
 ├── test-output/  # Gitignored folder showing the final state of each workspace and logs after each test run
 └── workspaces/   # Mock workspaces that the tools run on
 ```
 
-To update snapshots, run `UPDATE_SNAPSHOTS=true go test ./integrationtests/...`
+To update snapshots, run `UPDATE_SNAPSHOTS=true go test ./integration_tests/...`

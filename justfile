@@ -24,8 +24,8 @@ check:
   test -z "$(gofmt -l .)"
   go tool staticcheck ./...
   go tool errcheck ./...
-  find . -path "./integrationtests/workspaces" -prune -o \
-    -path "./integrationtests/test-output" -prune -o \
+  find . -path "./integration_tests/workspaces" -prune -o \
+    -path "./integration_tests/test-output" -prune -o \
     -name "*.go" -print | xargs gopls check
   go tool govulncheck ./...
 
@@ -35,4 +35,4 @@ test:
 
 # Update snapshot tests
 snapshot:
-  UPDATE_SNAPSHOTS=true go test ./integrationtests/...
+  UPDATE_SNAPSHOTS=true go test ./integration_tests/...

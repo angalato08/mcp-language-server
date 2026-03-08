@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/isaacphi/mcp-language-server/internal/lsp"
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
-	"github.com/isaacphi/mcp-language-server/internal/utilities"
+	"github.com/angalato08/mcp-language-server/internal/lsp"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/utilities"
 )
 
 // RenameSymbol renames a symbol (variable, function, class, etc.) at the specified position

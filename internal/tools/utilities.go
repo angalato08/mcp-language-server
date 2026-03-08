@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
 var workspaceRoot string

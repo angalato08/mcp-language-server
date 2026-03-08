@@ -1,9 +1,0 @@
----
-
-/TEST_OUTPUT/workspace/src/main.rs
-References in File: 1
-At: L15:C20
-
-14|fn main() {
-15|    println!("{}", foo_bar());
-16|}

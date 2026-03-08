@@ -1,13 +1,13 @@
 {
-  "mcpServers": {
-    "language-server": {
-      "command": "/Users/angalato/Documents/workspace/mcp-language-server/main/mcp-language-server",
-      "args": [
-        "--workspace",
-        "/Users/angalato/Documents/workspace/mcp-language-server/main/",
-        "--lsp",
-        "gopls"
-      ]
+    "mcpServers": {
+        "language-server": {
+            "command": "/home/angalato/workspace/mcp-language-server/main/mcp-language-server",
+            "args": [
+                "--workspace",
+                "/home/angalato/workspace/mcp-language-server/main",
+                "--lsp",
+                "gopls"
+            ]
+        }
     }
-  }
 }

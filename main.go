@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/isaacphi/mcp-language-server/internal/logging"
-	"github.com/isaacphi/mcp-language-server/internal/lsp"
-	"github.com/isaacphi/mcp-language-server/internal/tools"
-	"github.com/isaacphi/mcp-language-server/internal/watcher"
+	"github.com/angalato08/mcp-language-server/internal/logging"
+	"github.com/angalato08/mcp-language-server/internal/lsp"
+	"github.com/angalato08/mcp-language-server/internal/tools"
+	"github.com/angalato08/mcp-language-server/internal/watcher"
 	"github.com/mark3labs/mcp-go/server"
 )
 

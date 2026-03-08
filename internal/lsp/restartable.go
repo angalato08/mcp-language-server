@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
 // RestartableClient wraps a Client with automatic restart on LSP server death.

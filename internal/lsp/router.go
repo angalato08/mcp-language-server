@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
 // languageGroups maps language IDs to their "primary" language config key.
 // e.g., clangd handles both "c" and "cpp" — register config as "c",
 // and this maps "cpp" → "c" so both route to the same client.
 var languageGroups = map[string]string{
-	"cpp":              "c",
-	"typescriptreact":  "typescript",
-	"javascriptreact":  "javascript",
+	"cpp":             "c",
+	"typescriptreact": "typescript",
+	"javascriptreact": "javascript",
 }
 
 // LanguageConfig describes how to start an LSP server for a language.

@@ -265,7 +265,7 @@ Capabilities: protocol.ClientCapabilities{
 
 **Verify**: Run `go build ./...`. Then run the rename integration test:
 ```bash
-go test ./integrationtests/tests/go/rename_symbol/... -v -update
+go test ./integration_tests/tests/go/rename_symbol/... -v -update
 ```
 The rename should now produce changes across multiple files.
 
@@ -372,8 +372,8 @@ Move the `uri` variable declaration up (it's currently declared later in the fun
 
 **Verify**: Run diagnostics integration tests:
 ```bash
-go test ./integrationtests/tests/go/diagnostics/... -v
-go test ./integrationtests/tests/python/diagnostics/... -v
+go test ./integration_tests/tests/go/diagnostics/... -v
+go test ./integration_tests/tests/python/diagnostics/... -v
 ```
 Should complete in <1s instead of 3s for clean files.
 
@@ -501,8 +501,8 @@ for _, sym := range results {
 
 **Verify**:
 ```bash
-go test ./integrationtests/tests/typescript/definition/... -v
-go test ./integrationtests/tests/clangd/definition/... -v
+go test ./integration_tests/tests/typescript/definition/... -v
+go test ./integration_tests/tests/clangd/definition/... -v
 ```
 
 ---
@@ -637,7 +637,7 @@ return mcp.NewToolResultText(text), nil
 **Verify**: Test with a symbol that has 100+ references:
 ```bash
 # In the integration test workspace, pick a commonly-used symbol
-go test ./integrationtests/tests/go/references/... -v -update
+go test ./integration_tests/tests/go/references/... -v -update
 ```
 
 ---
@@ -1173,8 +1173,8 @@ import (
     "fmt"
     "strings"
 
-    "github.com/isaacphi/mcp-language-server/internal/lsp"
-    "github.com/isaacphi/mcp-language-server/internal/protocol"
+    "github.com/angalato08/mcp-language-server/internal/lsp"
+    "github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
 func GetDocumentSymbols(ctx context.Context, client *lsp.Client, filePath string) (string, error) {
@@ -1411,11 +1411,11 @@ go build ./...
 ```
 [ ] go build ./...                                    — compiles
 [ ] go test ./...                                     — unit tests pass
-[ ] go test ./integrationtests/tests/go/...           — Go tests pass
-[ ] go test ./integrationtests/tests/python/...       — Python tests pass
-[ ] go test ./integrationtests/tests/clangd/...       — C++ tests pass
-[ ] go test ./integrationtests/tests/rust/...         — Rust tests pass
-[ ] go test ./integrationtests/tests/typescript/...   — TS tests pass
+[ ] go test ./integration_tests/tests/go/...           — Go tests pass
+[ ] go test ./integration_tests/tests/python/...       — Python tests pass
+[ ] go test ./integration_tests/tests/clangd/...       — C++ tests pass
+[ ] go test ./integration_tests/tests/rust/...         — Rust tests pass
+[ ] go test ./integration_tests/tests/typescript/...   — TS tests pass
 [ ] Manual: rename across multiple files works         — Bug 1
 [ ] Manual: diagnostics return fast                    — Bug 2
 [ ] Manual: large workspace doesn't exhaust FDs        — Bug 3

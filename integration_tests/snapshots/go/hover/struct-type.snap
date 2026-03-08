@@ -1,0 +1,17 @@
+type SharedStruct struct { // size=<normalized>
+	ID        int
+	Name      string
+	Value     float64
+	Constants []string
+}
+
+
+SharedStruct is a struct used across multiple files
+
+
+func (s *SharedStruct) GetName() string
+func (s *SharedStruct) Method() string
+func (s *SharedStruct) Process() error
+
+
+[`main.SharedStruct` on pkg.go.dev](https://pkg.go.dev/github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace#SharedStruct)

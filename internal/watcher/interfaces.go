@@ -3,8 +3,8 @@ package watcher
 import (
 	"context"
 
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
-	"github.com/isaacphi/mcp-language-server/internal/watcher/common"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/watcher/common"
 )
 
 // LSPClient defines the minimal interface needed by the watcher

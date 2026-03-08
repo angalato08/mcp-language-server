@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/isaacphi/mcp-language-server/internal/lsp"
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/lsp"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
 // GetDocumentSymbols returns all symbols in a file with hierarchy.

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/isaacphi/mcp-language-server/internal/lsp"
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
+	"github.com/angalato08/mcp-language-server/internal/lsp"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
 // GetDiagnosticsForFile retrieves diagnostics for a specific file from the language server
@@ -168,7 +168,7 @@ func GetAllDiagnostics(ctx context.Context, clients []*lsp.Client) (string, erro
 	for _, client := range clients {
 		// Get all files that have diagnostics in this client
 		diagnosticsMap := client.GetAllDiagnostics()
-		
+
 		// Sort URIs for deterministic output
 		uris := make([]string, 0, len(diagnosticsMap))
 		for uri := range diagnosticsMap {
@@ -176,11 +176,11 @@ func GetAllDiagnostics(ctx context.Context, clients []*lsp.Client) (string, erro
 		}
 		// Alphabetical sort is fine here
 		// Note: we could use a more sophisticated sort if needed
-		
+
 		for _, uriStr := range uris {
 			uri := protocol.DocumentUri(uriStr)
 			diagnostics := diagnosticsMap[uri]
-			
+
 			filePath := strings.TrimPrefix(string(uri), "file://")
 			displayPath := RelativePath(filePath)
 

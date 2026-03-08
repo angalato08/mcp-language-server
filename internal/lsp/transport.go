@@ -9,11 +9,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/isaacphi/mcp-language-server/internal/logging"
+	"github.com/angalato08/mcp-language-server/internal/logging"
 )
 
 var (
-	ErrClientDead      = errors.New("LSP server process has died")
+	ErrClientDead       = errors.New("LSP server process has died")
 	ErrServerRestarting = errors.New("LSP server is restarting, please retry in a moment")
 )
 

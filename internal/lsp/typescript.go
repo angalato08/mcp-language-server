@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/isaacphi/mcp-language-server/internal/watcher/common"
+	"github.com/angalato08/mcp-language-server/internal/watcher/common"
 )
 
 // initializeTypescriptLanguageServer initializes the TypeScript language server

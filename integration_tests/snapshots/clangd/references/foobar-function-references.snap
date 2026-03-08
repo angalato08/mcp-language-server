@@ -1,0 +1,20 @@
+---
+
+/TEST_OUTPUT/workspace/src/main.cpp
+References in File: 2
+At: L5:C6, L14:C3
+
+5|void foo_bar() {
+6|  std::cout << "Hello, World!" << std::endl;
+7|  return;
+8|}
+...
+10|int main() {
+11|  helperFunction();
+12|  return 0;
+13|
+14|  foo_bar();
+15|
+16|  // Intentional error: unreachable code
+17|  std::cout << "This is unreachable" << std::endl;
+18|}

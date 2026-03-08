@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/angalato08/mcp-language-server/internal/logging"
+	"github.com/angalato08/mcp-language-server/internal/lsp"
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 	"github.com/fsnotify/fsnotify"
-	"github.com/isaacphi/mcp-language-server/internal/logging"
-	"github.com/isaacphi/mcp-language-server/internal/lsp"
-	"github.com/isaacphi/mcp-language-server/internal/protocol"
 )
 
 // Create a logger for the watcher component
@@ -591,4 +591,3 @@ func (w *WorkspaceWatcher) shouldExcludeFile(filePath string) bool {
 
 	return false
 }
-
