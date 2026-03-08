@@ -136,11 +136,19 @@ func (m *MockLSPClient) CountEvents(uri string, eventType protocol.FileChangeTyp
 	return count
 }
 
-// ResetEvents clears the recorded events
+// ResetEvents clears the recorded events and drains stale signals from the channel
 func (m *MockLSPClient) ResetEvents() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.events = []FileEvent{}
+	// Drain any stale signals from the channel
+	for {
+		select {
+		case <-m.eventsReceived:
+		default:
+			return
+		}
+	}
 }
 
 // WaitForEvent waits for at least one event to be received or context to be done
@@ -150,6 +158,23 @@ func (m *MockLSPClient) WaitForEvent(ctx context.Context) bool {
 		return true
 	case <-ctx.Done():
 		return false
+	}
+}
+
+// WaitForEventMatching waits until a specific event (URI + type) is recorded or context expires
+func (m *MockLSPClient) WaitForEventMatching(ctx context.Context, uri string, eventType protocol.FileChangeType) bool {
+	for {
+		// Check if the event already exists
+		if m.CountEvents(uri, eventType) > 0 {
+			return true
+		}
+		// Wait for the next event signal
+		select {
+		case <-m.eventsReceived:
+			continue
+		case <-ctx.Done():
+			return false
+		}
 	}
 }
 

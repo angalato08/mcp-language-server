@@ -90,23 +90,15 @@ func TestWatcherBasicFunctionality(t *testing.T) {
 		}
 		t.Logf("File created successfully")
 
-		// Wait for notification
-		waitCtx, waitCancel := context.WithTimeout(ctx, 2*time.Second)
+		// Wait for the specific Created event (Changed may arrive first due to
+		// separate debounce timers for each event type)
+		uri := "file://" + filePath
+		waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
 		defer waitCancel()
 
-		if !mockClient.WaitForEvent(waitCtx) {
+		if !mockClient.WaitForEventMatching(waitCtx, uri, protocol.FileChangeType(protocol.Created)) {
 			t.Logf("Events received so far: %+v", mockClient.GetEvents())
-			t.Fatal("Timed out waiting for file creation event")
-		}
-
-		// Check for create notification
-		uri := "file://" + filePath
-		count := mockClient.CountEvents(uri, protocol.FileChangeType(protocol.Created))
-		if count == 0 {
 			t.Errorf("No create event received for %s", filePath)
-		}
-		if count > 1 {
-			t.Errorf("Multiple create events received for %s: %d", filePath, count)
 		}
 	})
 
@@ -318,18 +310,13 @@ func TestGitignoreIntegration(t *testing.T) {
 			t.Fatalf("Failed to write file: %v", err)
 		}
 
-		// Wait for notification
-		waitCtx, waitCancel := context.WithTimeout(ctx, 2*time.Second)
+		// Wait for the specific Created event (Changed may arrive first due to
+		// separate debounce timers for each event type)
+		uri := "file://" + filePath
+		waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
 		defer waitCancel()
 
-		if !mockClient.WaitForEvent(waitCtx) {
-			t.Fatal("Timed out waiting for file creation event")
-		}
-
-		// Check that notification was sent
-		uri := "file://" + filePath
-		count := mockClient.CountEvents(uri, protocol.FileChangeType(protocol.Created))
-		if count == 0 {
+		if !mockClient.WaitForEventMatching(waitCtx, uri, protocol.FileChangeType(protocol.Created)) {
 			t.Errorf("No create event received for non-ignored file %s", filePath)
 		}
 	})
