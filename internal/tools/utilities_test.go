@@ -1,8 +1,6 @@
 package tools
 
 import (
-	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -10,87 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Save original ReadFile function
-var originalReadFile = os.ReadFile
-
-// Create a function we can monkeypatch
-func readFileHelper(name string) ([]byte, error) {
-	return originalReadFile(name)
-}
-
-// Mock implementation that can be changed in tests
-var readFileFunc = readFileHelper
-
-// Create a modified version of ExtractTextFromLocation that uses our mockable function
-func extractTextFromLocationForTest(loc protocol.Location) (string, error) {
-	path := strings.TrimPrefix(string(loc.URI), "file://")
-
-	content, err := readFileFunc(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-
-	startLine := int(loc.Range.Start.Line)
-	endLine := int(loc.Range.End.Line)
-	if startLine < 0 || startLine >= len(lines) || endLine < 0 || endLine >= len(lines) {
-		return "", fmt.Errorf("invalid Location range: %v", loc.Range)
-	}
-
-	// Handle single-line case
-	if startLine == endLine {
-		line := lines[startLine]
-		startChar := int(loc.Range.Start.Character)
-		endChar := int(loc.Range.End.Character)
-
-		if startChar < 0 || startChar > len(line) || endChar < 0 || endChar > len(line) {
-			return "", fmt.Errorf("invalid character range: %v", loc.Range)
-		}
-
-		return line[startChar:endChar], nil
-	}
-
-	// Handle multi-line case
-	var result strings.Builder
-
-	// First line
-	firstLine := lines[startLine]
-	startChar := int(loc.Range.Start.Character)
-	if startChar < 0 || startChar > len(firstLine) {
-		return "", fmt.Errorf("invalid start character: %v", loc.Range.Start)
-	}
-	result.WriteString(firstLine[startChar:])
-
-	// Middle lines
-	for i := startLine + 1; i < endLine; i++ {
-		result.WriteString("\n")
-		result.WriteString(lines[i])
-	}
-
-	// Last line
-	lastLine := lines[endLine]
-	endChar := int(loc.Range.End.Character)
-	if endChar < 0 || endChar > len(lastLine) {
-		return "", fmt.Errorf("invalid end character: %v", loc.Range.End)
-	}
-	result.WriteString("\n")
-	result.WriteString(lastLine[:endChar])
-
-	return result.String(), nil
-}
-
 func TestExtractTextFromLocation_SingleLine(t *testing.T) {
-	mockContent := "function testFunction() {\n  return 'test';\n}"
-
-	// Store original function and restore after test
-	originalFunc := readFileFunc
-	defer func() { readFileFunc = originalFunc }()
-
-	// Set up mock implementation
-	readFileFunc = func(name string) ([]byte, error) {
-		return []byte(mockContent), nil
-	}
+	t.Parallel()
+	content := []byte("function testFunction() {\n  return 'test';\n}")
 
 	location := protocol.Location{
 		URI: "file:///path/to/file.js",
@@ -100,23 +20,15 @@ func TestExtractTextFromLocation_SingleLine(t *testing.T) {
 		},
 	}
 
-	result, err := extractTextFromLocationForTest(location)
+	result, err := extractTextFromContent(content, location)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "testFunction", result)
 }
 
 func TestExtractTextFromLocation_MultiLine(t *testing.T) {
-	mockContent := "function testFunction() {\n  return 'test';\n}"
-
-	// Store original function and restore after test
-	originalFunc := readFileFunc
-	defer func() { readFileFunc = originalFunc }()
-
-	// Set up mock implementation
-	readFileFunc = func(name string) ([]byte, error) {
-		return []byte(mockContent), nil
-	}
+	t.Parallel()
+	content := []byte("function testFunction() {\n  return 'test';\n}")
 
 	location := protocol.Location{
 		URI: "file:///path/to/file.js",
@@ -126,23 +38,15 @@ func TestExtractTextFromLocation_MultiLine(t *testing.T) {
 		},
 	}
 
-	result, err := extractTextFromLocationForTest(location)
+	result, err := extractTextFromContent(content, location)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "testFunction() {\n  return 'test'", result)
 }
 
 func TestExtractTextFromLocation_InvalidRange(t *testing.T) {
-	mockContent := "function testFunction() {\n  return 'test';\n}"
-
-	// Store original function and restore after test
-	originalFunc := readFileFunc
-	defer func() { readFileFunc = originalFunc }()
-
-	// Set up mock implementation
-	readFileFunc = func(name string) ([]byte, error) {
-		return []byte(mockContent), nil
-	}
+	t.Parallel()
+	content := []byte("function testFunction() {\n  return 'test';\n}")
 
 	// Out of bounds line
 	location := protocol.Location{
@@ -153,7 +57,7 @@ func TestExtractTextFromLocation_InvalidRange(t *testing.T) {
 		},
 	}
 
-	_, err := extractTextFromLocationForTest(location)
+	_, err := extractTextFromContent(content, location)
 	assert.Error(t, err)
 
 	// Out of bounds character on single line
@@ -165,33 +69,29 @@ func TestExtractTextFromLocation_InvalidRange(t *testing.T) {
 		},
 	}
 
-	_, err = extractTextFromLocationForTest(location)
+	_, err = extractTextFromContent(content, location)
 	assert.Error(t, err)
 }
 
-func TestExtractTextFromLocation_FileError(t *testing.T) {
-	// Store original function and restore after test
-	originalFunc := readFileFunc
-	defer func() { readFileFunc = originalFunc }()
-
-	// Mock implementation that returns an error
-	readFileFunc = func(name string) ([]byte, error) {
-		return nil, os.ErrNotExist
-	}
+func TestExtractTextFromLocation_EmptyContent(t *testing.T) {
+	t.Parallel()
+	content := []byte("")
 
 	location := protocol.Location{
-		URI: "file:///path/to/nonexistent.js",
+		URI: "file:///path/to/file.js",
 		Range: protocol.Range{
-			Start: protocol.Position{Line: 0, Character: 9},
-			End:   protocol.Position{Line: 0, Character: 21},
+			Start: protocol.Position{Line: 0, Character: 0},
+			End:   protocol.Position{Line: 0, Character: 0},
 		},
 	}
 
-	_, err := extractTextFromLocationForTest(location)
-	assert.Error(t, err)
+	result, err := extractTextFromContent(content, location)
+	assert.NoError(t, err)
+	assert.Equal(t, "", result)
 }
 
 func TestContainsPosition(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		r        protocol.Range
@@ -292,6 +192,7 @@ func TestContainsPosition(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := containsPosition(tc.r, tc.p)
 			assert.Equal(t, tc.expected, result, "Expected containsPosition to return %v for range %v and position %v",
 				tc.expected, tc.r, tc.p)
@@ -300,6 +201,7 @@ func TestContainsPosition(t *testing.T) {
 }
 
 func TestAddLineNumbers(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name      string
 		text      string
@@ -334,6 +236,7 @@ func TestAddLineNumbers(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := addLineNumbers(tc.text, tc.startLine)
 			assert.Equal(t, tc.expected, result)
 		})
@@ -341,6 +244,7 @@ func TestAddLineNumbers(t *testing.T) {
 }
 
 func TestConvertLinesToRanges(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name        string
 		linesToShow map[int]bool
@@ -393,6 +297,7 @@ func TestConvertLinesToRanges(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := ConvertLinesToRanges(tc.linesToShow, tc.totalLines)
 			assert.Equal(t, tc.expected, result, "Expected ranges to match")
 		})
@@ -400,6 +305,7 @@ func TestConvertLinesToRanges(t *testing.T) {
 }
 
 func TestFormatLinesWithRanges(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		lines    []string
@@ -449,6 +355,7 @@ func TestFormatLinesWithRanges(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := FormatLinesWithRanges(tc.lines, tc.ranges)
 			assert.Equal(t, tc.expected, result, "Expected formatted output to match")
 		})
@@ -502,6 +409,7 @@ func TestRelativePath(t *testing.T) {
 }
 
 func TestTrimResponse(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		input    string
@@ -526,6 +434,7 @@ func TestTrimResponse(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			result := TrimResponse(tc.input)
 			assert.Equal(t, tc.expected, result)
 		})

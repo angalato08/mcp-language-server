@@ -3,8 +3,9 @@ package logging
 import (
 	"bytes"
 	"maps"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLogger(t *testing.T) {
@@ -88,20 +89,12 @@ func TestLogger(t *testing.T) {
 
 			// Check if message was logged
 			loggedMessage := buf.String()
-			if tt.shouldLog && loggedMessage == "" {
-				t.Errorf("Expected log message but got none")
-			} else if !tt.shouldLog && loggedMessage != "" {
-				t.Errorf("Expected no log message but got: %s", loggedMessage)
-			}
-
-			// When log should appear, check if it contains expected parts
 			if tt.shouldLog {
-				if !strings.Contains(loggedMessage, tt.level.String()) {
-					t.Errorf("Log message missing level '%s': %s", tt.level, loggedMessage)
-				}
-				if !strings.Contains(loggedMessage, string(tt.component)) {
-					t.Errorf("Log message missing component '%s': %s", tt.component, loggedMessage)
-				}
+				assert.NotEmpty(t, loggedMessage, "Expected log message but got none")
+				assert.Contains(t, loggedMessage, tt.level.String(), "Log message missing level")
+				assert.Contains(t, loggedMessage, string(tt.component), "Log message missing component")
+			} else {
+				assert.Empty(t, loggedMessage, "Expected no log message but got: %s", loggedMessage)
 			}
 		})
 	}

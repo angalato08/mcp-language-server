@@ -50,6 +50,10 @@ func ExtractTextFromLocation(loc protocol.Location) (string, error) {
 		return "", fmt.Errorf("failed to read file: %w", err)
 	}
 
+	return extractTextFromContent(content, loc)
+}
+
+func extractTextFromContent(content []byte, loc protocol.Location) (string, error) {
 	lines := strings.Split(string(content), "\n")
 
 	startLine := int(loc.Range.Start.Line)

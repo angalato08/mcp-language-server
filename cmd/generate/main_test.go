@@ -12,13 +12,16 @@ import (
 	"testing"
 )
 
-// These tests require the result of
-//"git clone https://github.com/microsoft/vscode-languageserver-node" in the HOME directory
+// These tests require a local clone of the vscode-languageserver-node repository.
+// To run them:
+//  1. git clone https://github.com/microsoft/vscode-languageserver-node ~/vscode-languageserver-node
+//  2. Remove the t.Skip() calls below
+//  3. go test ./cmd/generate/...
 
 // this is not a test, but a way to get code coverage,
 // (in vscode, just run the test with  "go.coverOnSingleTest": true)
 func TestAll(t *testing.T) {
-	t.Skip("needs vscode-languageserver-node repository")
+	t.Skip("needs vscode-languageserver-node repository; see instructions above")
 	*lineNumbers = true
 	log.SetFlags(log.Lshortfile)
 	main()
@@ -29,7 +32,7 @@ func TestAll(t *testing.T) {
 // introduces new fields. (one can test this test by
 // commenting out the version field in Model.)
 func TestParseContents(t *testing.T) {
-	t.Skip("needs vscode-languageserver-node repository")
+	t.Skip("needs vscode-languageserver-node repository; see instructions above")
 	log.SetFlags(log.Lshortfile)
 
 	// compute our parse of the specification

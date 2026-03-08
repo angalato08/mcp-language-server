@@ -3,12 +3,13 @@ package utilities
 import (
 	"errors"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/angalato08/mcp-language-server/internal/protocol"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // mockFileSystem provides mocked file system operations
@@ -257,9 +258,7 @@ func TestRangesOverlap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := RangesOverlap(tt.range1, tt.range2)
-			if result != tt.expected {
-				t.Errorf("RangesOverlap() = %v, want %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -447,15 +446,10 @@ func TestApplyTextEdit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := ApplyTextEdit(tt.lines, tt.edit, tt.lineEnding)
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				}
+				require.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				} else if !reflect.DeepEqual(result, tt.expected) {
-					t.Errorf("applyTextEdit() result = %v, want %v", result, tt.expected)
-				}
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
 			}
 		})
 	}
@@ -646,22 +640,13 @@ func TestApplyTextEdits(t *testing.T) {
 
 			err := ApplyTextEdits(tt.uri, tt.edits)
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				}
+				require.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				} else {
-					path := strings.TrimPrefix(string(tt.uri), "file://")
-					if content, ok := mfs.files[path]; ok {
-						if string(content) != tt.expected {
-							t.Errorf("applyTextEdits() result = %q, want %q", string(content), tt.expected)
-						}
-					} else {
-						t.Errorf("File not found in mock file system")
-					}
-				}
+				require.NoError(t, err)
+				path := strings.TrimPrefix(string(tt.uri), "file://")
+				content, ok := mfs.files[path]
+				require.True(t, ok, "File not found in mock file system")
+				assert.Equal(t, tt.expected, string(content))
 			}
 		})
 	}
@@ -687,9 +672,7 @@ func TestApplyDocumentChange(t *testing.T) {
 				mfs.files = map[string][]byte{}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if _, ok := mfs.files["/test/newfile.txt"]; !ok {
-					t.Errorf("File was not created")
-				}
+				assert.Contains(t, mfs.files, "/test/newfile.txt", "File was not created")
 			},
 		},
 		{
@@ -709,11 +692,9 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if content, ok := mfs.files["/test/existing.txt"]; !ok {
-					t.Errorf("File was not created")
-				} else if string(content) != "" {
-					t.Errorf("File was not overwritten, content: %s", string(content))
-				}
+				content, ok := mfs.files["/test/existing.txt"]
+				require.True(t, ok, "File was not created")
+				assert.Equal(t, "", string(content), "File was not overwritten")
 			},
 		},
 		{
@@ -736,11 +717,9 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if content, ok := mfs.files["/test/existing.txt"]; !ok {
-					t.Errorf("File was removed")
-				} else if string(content) != "existing content" {
-					t.Errorf("File was modified, content: %s", string(content))
-				}
+				content, ok := mfs.files["/test/existing.txt"]
+				require.True(t, ok, "File was removed")
+				assert.Equal(t, "existing content", string(content), "File was modified")
 			},
 		},
 		{
@@ -757,9 +736,7 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if _, ok := mfs.files["/test/existing.txt"]; ok {
-					t.Errorf("File was not deleted")
-				}
+				assert.NotContains(t, mfs.files, "/test/existing.txt", "File was not deleted")
 			},
 		},
 		{
@@ -782,18 +759,10 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if _, ok := mfs.files["/test/dir/file1.txt"]; ok {
-					t.Errorf("File in directory was not deleted")
-				}
-				if _, ok := mfs.files["/test/dir/file2.txt"]; ok {
-					t.Errorf("File in directory was not deleted")
-				}
-				if _, ok := mfs.files["/test/dir/subdir/file3.txt"]; ok {
-					t.Errorf("File in subdirectory was not deleted")
-				}
-				if _, ok := mfs.files["/test/other.txt"]; !ok {
-					t.Errorf("File outside target directory was deleted")
-				}
+				assert.NotContains(t, mfs.files, "/test/dir/file1.txt", "File in directory was not deleted")
+				assert.NotContains(t, mfs.files, "/test/dir/file2.txt", "File in directory was not deleted")
+				assert.NotContains(t, mfs.files, "/test/dir/subdir/file3.txt", "File in subdirectory was not deleted")
+				assert.Contains(t, mfs.files, "/test/other.txt", "File outside target directory was deleted")
 			},
 		},
 		{
@@ -811,14 +780,10 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if _, ok := mfs.files["/test/oldname.txt"]; ok {
-					t.Errorf("Old file still exists")
-				}
-				if content, ok := mfs.files["/test/newname.txt"]; !ok {
-					t.Errorf("New file was not created")
-				} else if string(content) != "file content" {
-					t.Errorf("New file has incorrect content: %s", string(content))
-				}
+				assert.NotContains(t, mfs.files, "/test/oldname.txt", "Old file still exists")
+				content, ok := mfs.files["/test/newname.txt"]
+				require.True(t, ok, "New file was not created")
+				assert.Equal(t, "file content", string(content))
 			},
 		},
 		{
@@ -843,12 +808,10 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if _, ok := mfs.files["/test/oldname.txt"]; !ok {
-					t.Errorf("Old file was removed despite rename failure")
-				}
-				if content, ok := mfs.files["/test/existing.txt"]; !ok || string(content) != "existing content" {
-					t.Errorf("Existing file was modified despite no overwrite")
-				}
+				assert.Contains(t, mfs.files, "/test/oldname.txt", "Old file was removed despite rename failure")
+				content, ok := mfs.files["/test/existing.txt"]
+				require.True(t, ok, "Existing file was removed")
+				assert.Equal(t, "existing content", string(content), "Existing file was modified despite no overwrite")
 			},
 		},
 		{
@@ -880,11 +843,9 @@ func TestApplyDocumentChange(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if content, ok := mfs.files["/test/document.txt"]; !ok {
-					t.Errorf("File not found")
-				} else if string(content) != "This was test line" {
-					t.Errorf("Text edit not applied correctly, content: %s", string(content))
-				}
+				content, ok := mfs.files["/test/document.txt"]
+				require.True(t, ok, "File not found")
+				assert.Equal(t, "This was test line", string(content))
 			},
 		},
 	}
@@ -898,13 +859,9 @@ func TestApplyDocumentChange(t *testing.T) {
 
 			err := ApplyDocumentChange(tt.change)
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				}
+				require.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+				require.NoError(t, err)
 				tt.checkState(t, mfs)
 			}
 		})
@@ -951,17 +908,13 @@ func TestApplyWorkspaceEdit(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if content, ok := mfs.files["/test/file1.txt"]; !ok {
-					t.Errorf("File1 not found")
-				} else if string(content) != "This was test line" {
-					t.Errorf("Edit to file1 not applied correctly, content: %s", string(content))
-				}
+				content, ok := mfs.files["/test/file1.txt"]
+				require.True(t, ok, "File1 not found")
+				assert.Equal(t, "This was test line", string(content))
 
-				if content, ok := mfs.files["/test/file2.txt"]; !ok {
-					t.Errorf("File2 not found")
-				} else if string(content) != "Line 1\nModified\nLine 3" {
-					t.Errorf("Edit to file2 not applied correctly, content: %s", string(content))
-				}
+				content, ok = mfs.files["/test/file2.txt"]
+				require.True(t, ok, "File2 not found")
+				assert.Equal(t, "Line 1\nModified\nLine 3", string(content))
 			},
 		},
 		{
@@ -1009,23 +962,13 @@ func TestApplyWorkspaceEdit(t *testing.T) {
 				}
 			},
 			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				if _, ok := mfs.files["/test/newfile.txt"]; !ok {
-					t.Errorf("New file was not created")
-				}
+				assert.Contains(t, mfs.files, "/test/newfile.txt", "New file was not created")
+				assert.NotContains(t, mfs.files, "/test/oldname.txt", "Old file still exists")
+				assert.Contains(t, mfs.files, "/test/newname.txt", "Renamed file not found")
 
-				if _, ok := mfs.files["/test/oldname.txt"]; ok {
-					t.Errorf("Old file still exists")
-				}
-
-				if _, ok := mfs.files["/test/newname.txt"]; !ok {
-					t.Errorf("Renamed file not found")
-				}
-
-				if content, ok := mfs.files["/test/document.txt"]; !ok {
-					t.Errorf("Document not found")
-				} else if string(content) != "This was test line" {
-					t.Errorf("Text edit not applied correctly, content: %s", string(content))
-				}
+				content, ok := mfs.files["/test/document.txt"]
+				require.True(t, ok, "Document not found")
+				assert.Equal(t, "This was test line", string(content))
 			},
 		},
 		{
@@ -1057,12 +1000,8 @@ func TestApplyWorkspaceEdit(t *testing.T) {
 				mfs.files = map[string][]byte{
 					"/test/file1.txt": []byte("This is a test line"),
 				}
-				// Missing file causes an error
 			},
-			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				// The first edit might or might not be applied depending on implementation
-				// so we don't check it
-			},
+			checkState: func(t *testing.T, mfs *mockFileSystem) {},
 		},
 		{
 			name: "Error in DocumentChanges field",
@@ -1084,12 +1023,8 @@ func TestApplyWorkspaceEdit(t *testing.T) {
 			expectErr: true,
 			setupMocks: func(mfs *mockFileSystem) {
 				mfs.files = map[string][]byte{}
-				// Missing file causes an error
 			},
-			checkState: func(t *testing.T, mfs *mockFileSystem) {
-				// The first operation might or might not be applied depending on implementation
-				// so we don't check it
-			},
+			checkState: func(t *testing.T, mfs *mockFileSystem) {},
 		},
 	}
 
@@ -1102,13 +1037,9 @@ func TestApplyWorkspaceEdit(t *testing.T) {
 
 			err := ApplyWorkspaceEdit(tt.edit)
 			if tt.expectErr {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				}
+				require.Error(t, err)
 			} else {
-				if err != nil {
-					t.Errorf("Unexpected error: %v", err)
-				}
+				require.NoError(t, err)
 				tt.checkState(t, mfs)
 			}
 		})
