@@ -1,0 +1,7 @@
+Incoming calls to: LeafFunction (Function)
+
+1. MiddleFunction (Function)
+   Detail: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace • callchain.go
+   File: callchain.go
+   Range: L11:C6 - L11:C20
+   Call sites: 1 [L12:C12]

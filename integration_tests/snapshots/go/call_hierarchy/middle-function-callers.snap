@@ -1,0 +1,13 @@
+Incoming calls to: MiddleFunction (Function)
+
+1. EntryPoint (Function)
+   Detail: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace • callchain.go
+   File: callchain.go
+   Range: L17:C6 - L17:C16
+   Call sites: 1 [L18:C9]
+
+2. AnotherCaller (Function)
+   Detail: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace • callchain.go
+   File: callchain.go
+   Range: L23:C6 - L23:C19
+   Call sites: 1 [L24:C14]

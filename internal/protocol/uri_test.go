@@ -274,3 +274,195 @@ func TestIsWindowsDriveURIPath(t *testing.T) {
 		})
 	}
 }
+
+// Cross-platform URI tests — these test Windows-style paths and URIs
+// on any OS since the functions are pure string operations.
+
+func TestParseDocumentUriWindowsVariants(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     string
+		wantErr   bool
+		checkFunc func(t *testing.T, uri DocumentUri)
+	}{
+		{
+			name:  "uppercase drive letter preserved",
+			input: "file:///C:/Users/test/main.go",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.Contains(t, string(uri), "C:")
+				path := uri.Path()
+				assert.Contains(t, path, "Users/test/main.go")
+			},
+		},
+		{
+			name:  "lowercase drive letter uppercased",
+			input: "file:///c:/Users/test/main.go",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.Contains(t, string(uri), "C:")
+				assert.NotContains(t, string(uri), "c:")
+			},
+		},
+		{
+			name:  "encoded colon in drive letter decoded",
+			input: "file:///C%3A/project/readme.md",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.Contains(t, string(uri), "C:")
+			},
+		},
+		{
+			name:  "encoded lowercase colon drive letter uppercased",
+			input: "file:///c%3A/project/readme.md",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.Contains(t, string(uri), "C:")
+			},
+		},
+		{
+			name:  "backslash path in URI (edge case)",
+			input: "file:///C:/Users/test%5Cmain.go",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.NotEmpty(t, uri)
+			},
+		},
+		{
+			name:  "space in Windows path",
+			input: "file:///C:/Program%20Files/app/main.go",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				path := uri.Path()
+				assert.Contains(t, path, "Program Files")
+			},
+		},
+		{
+			name:  "two-slash Windows URI fixed",
+			input: "file://C:/Users/test/main.go",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.Contains(t, string(uri), "file:///")
+			},
+		},
+		{
+			name:  "UNC-like path",
+			input: "file:///server/share/file.go",
+			checkFunc: func(t *testing.T, uri DocumentUri) {
+				assert.NotEmpty(t, uri)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			uri, err := ParseDocumentUri(tc.input)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tc.checkFunc != nil {
+				tc.checkFunc(t, uri)
+			}
+		})
+	}
+}
+
+func TestWindowsDrivePathEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{"drive D:", "D:/Projects/test", true},
+		{"drive Z:", "Z:/data", true},
+		{"lowercase drive d:", "d:/Projects/test", true},
+		{"backslash separator", "C:\\Users\\test", true},
+		{"just drive", "C:/", true},
+		{"empty string", "", false},
+		{"single char", "C", false},
+		{"number start", "1:/test", false},
+		{"underscore start", "_:/test", false},
+		{"special char start", "#:/test", false},
+		{"unicode letter multibyte", "Ä:/test", false}, // multi-byte rune: path[0] is not a valid letter byte
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.expected, isWindowsDrivePath(tc.path))
+		})
+	}
+}
+
+func TestWindowsDriveURIPathEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		path     string
+		expected bool
+	}{
+		{"drive D:", "/D:/Projects/test", true},
+		{"drive Z:", "/Z:/data", true},
+		{"lowercase drive d:", "/d:/Projects/test", true},
+		{"just /C:/", "/C:/", true},
+		{"empty string", "", false},
+		{"single slash", "/", false},
+		{"two chars", "/C", false},
+		{"three chars /C:", "/C:", false},
+		{"missing leading slash", "C:/test", false},
+		{"double slash", "//C:/test", false},
+		{"number after slash", "/1:/test", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.expected, isWindowsDriveURIPath(tc.path))
+		})
+	}
+}
+
+func TestURISpecialCharacters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"space in path", "file:///home/user/my%20project/test.go"},
+		{"hash in path", "file:///home/user/project%23name/test.go"},
+		{"plus in path", "file:///home/user/c%2B%2B/test.go"},
+		{"unicode in path", "file:///home/user/%C3%A4%C3%B6%C3%BC/test.go"},
+		{"multiple encoded chars", "file:///home/user/a%20b%20c%20d/test.go"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			uri, err := ParseDocumentUri(tc.input)
+			require.NoError(t, err)
+			assert.NotEmpty(t, uri)
+
+			// Path should be decodable
+			path := uri.Path()
+			assert.NotEmpty(t, path)
+			assert.NotContains(t, path, "%20", "spaces should be decoded")
+		})
+	}
+}
+
+func TestFilenameInternalErrors(t *testing.T) {
+	t.Parallel()
+
+	// Non-file scheme should error in filename()
+	_, err := filename(DocumentUri("https://example.com/file.go"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "only file URIs are supported")
+
+	// Invalid URI should error
+	_, err = filename(DocumentUri("not a valid uri at all"))
+	assert.Error(t, err)
+}

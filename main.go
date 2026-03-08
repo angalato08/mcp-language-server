@@ -96,14 +96,9 @@ func parseLSPFlags(flags []string, trailingArgs []string) ([]lsp.LanguageConfig,
 func parseConfig() (*config, error) {
 	cfg := &config{}
 	var lspFlags stringSlice
-	flag.StringVar(&cfg.workspaceDir, "workspace", "", "Path to workspace directory")
+	flag.StringVar(&cfg.workspaceDir, "workspace", ".", "Path to workspace directory (defaults to current directory)")
 	flag.Var(&lspFlags, "lsp", "LSP server to use. Format: lang:command or just command. Can be specified multiple times.")
 	flag.Parse()
-
-	// Validate workspace directory
-	if cfg.workspaceDir == "" {
-		return nil, fmt.Errorf("workspace directory is required")
-	}
 
 	workspaceDir, err := filepath.Abs(cfg.workspaceDir)
 	if err != nil {

@@ -74,12 +74,17 @@ func ApplyTextEdits(ctx context.Context, client *lsp.Client, filePath string, ed
 
 	edit := protocol.WorkspaceEdit{
 		Changes: map[protocol.DocumentUri][]protocol.TextEdit{
-			protocol.DocumentUri(filePath): textEdits,
+			protocol.DocumentUri("file://" + filePath): textEdits,
 		},
 	}
 
 	if err := utilities.ApplyWorkspaceEdit(edit); err != nil {
 		return "", fmt.Errorf("failed to apply text edits: %v", err)
+	}
+
+	// Notify the LSP server about the change so diagnostics update
+	if err := client.NotifyChange(ctx, filePath); err != nil {
+		toolsLogger.Warn("Failed to notify LSP of text edit change: %v", err)
 	}
 
 	return fmt.Sprintf("Successfully applied text edits. %d lines removed, %d lines added.", linesRemovedSorted, linesAddedSorted), nil

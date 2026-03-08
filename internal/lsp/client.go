@@ -432,6 +432,18 @@ func (c *Client) CloseFile(ctx context.Context, filepath string) error {
 	return nil
 }
 
+// GetOpenFiles returns a list of currently open file paths.
+func (c *Client) GetOpenFiles() []string {
+	c.openFilesMu.RLock()
+	defer c.openFilesMu.RUnlock()
+
+	paths := make([]string, 0, len(c.openFiles))
+	for uri := range c.openFiles {
+		paths = append(paths, strings.TrimPrefix(uri, "file://"))
+	}
+	return paths
+}
+
 func (c *Client) IsFileOpen(filepath string) bool {
 	uri := fmt.Sprintf("file://%s", filepath)
 	c.openFilesMu.RLock()

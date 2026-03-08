@@ -2,6 +2,7 @@ package text_edit_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -198,6 +199,87 @@ func AnotherFunction() {
 			common.SnapshotTest(t, "go", "text_edit", snapshotName, result)
 		})
 	}
+}
+
+// TestApplyTextEditsLSPRoundTrip verifies the LSP server is properly notified
+// after edit_file modifies a file, by checking that diagnostics update.
+func TestApplyTextEditsLSPRoundTrip(t *testing.T) {
+	suite := internal.GetTestSuite(t)
+
+	ctx, cancel := context.WithTimeout(suite.Context, 30*time.Second)
+	defer cancel()
+
+	// Create a clean Go file
+	testFileName := "lsp_roundtrip_test.go"
+	testFilePath := filepath.Join(suite.WorkspaceDir, testFileName)
+
+	cleanContent := `package main
+
+import "fmt"
+
+func RoundTripFunc() string {
+	return fmt.Sprintf("hello %s", "world")
+}
+`
+
+	err := suite.WriteFile(testFileName, cleanContent)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Open the file in the LSP and wait for initial diagnostics
+	err = suite.Client.OpenFile(ctx, testFilePath)
+	if err != nil {
+		t.Fatalf("Failed to open file: %v", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Verify the file is clean initially
+	result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1)
+	if err != nil {
+		t.Fatalf("GetDiagnosticsForFile failed: %v", err)
+	}
+	if !strings.Contains(result, "No diagnostics found") {
+		t.Fatalf("Expected clean file initially but got diagnostics: %s", result)
+	}
+
+	// Use edit_file to introduce a type error: change return type mismatch
+	// Replace `return fmt.Sprintf("hello %s", "world")` with `return 42`
+	editResult, err := tools.ApplyTextEdits(ctx, suite.Client, testFilePath, []tools.TextEdit{
+		{
+			StartLine: 6,
+			EndLine:   6,
+			NewText:   `	return 42`,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ApplyTextEdits failed: %v", err)
+	}
+	if !strings.Contains(editResult, "Successfully applied text edits") {
+		t.Fatalf("Unexpected edit result: %s", editResult)
+	}
+
+	// Wait for LSP to process the notification
+	time.Sleep(3 * time.Second)
+
+	// Check diagnostics — LSP should now report a type error
+	result, err = tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1)
+	if err != nil {
+		t.Fatalf("GetDiagnosticsForFile failed after edit: %v", err)
+	}
+
+	if strings.Contains(result, "No diagnostics found") {
+		t.Errorf("Expected diagnostics after introducing type error, but got none. LSP was not notified of the change.")
+	}
+
+	// Should mention the type mismatch (returning int instead of string)
+	if !strings.Contains(result, "int") && !strings.Contains(result, "return") && !strings.Contains(result, "cannot") {
+		t.Errorf("Expected type error diagnostic but got: %s", result)
+	}
+
+	fmt.Printf("LSP round-trip verified: %s\n", result)
+
+	common.SnapshotTest(t, "go", "text_edit", "lsp_roundtrip_type_error", result)
 }
 
 // TestApplyTextEditsWithBorderCases tests edge cases for the ApplyTextEdits tool

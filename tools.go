@@ -506,6 +506,191 @@ func (s *mcpServer) registerTools() error {
 		return mcp.NewToolResultError(fmt.Sprintf("failed to search workspace symbols: %v", lastErr)), nil
 	})
 
+	formatFileTool := mcp.NewTool("format_file",
+		mcp.WithDescription("Format a file using the language server's built-in formatter (e.g., gofmt for Go, rustfmt for Rust, clang-format for C/C++). Returns an error if the language server does not support formatting."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file to format"),
+		),
+		mcp.WithNumber("tabSize",
+			mcp.Description("Number of spaces per tab. Default 4."),
+		),
+		mcp.WithBoolean("insertSpaces",
+			mcp.Description("Use spaces instead of tabs. Default true."),
+		),
+	)
+
+	s.mcpServer.AddTool(formatFileTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		tabSize := getInt(request.Params.Arguments, "tabSize", 4)
+		insertSpaces := true
+		if v, ok := request.Params.Arguments["insertSpaces"].(bool); ok {
+			insertSpaces = v
+		}
+
+		coreLogger.Debug("Executing format_file for file: %s", filePath)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.FormatFile(ctx, client, filePath, tabSize, insertSpaces)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to format file: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	implementationTool := mcp.NewTool("implementation",
+		mcp.WithDescription("Find concrete implementations of an interface, abstract class, or trait. Unlike 'definition' which shows where a symbol is declared, this shows the actual code that implements it."),
+		mcp.WithString("symbolName",
+			mcp.Required(),
+			mcp.Description("The name of the interface or abstract symbol to find implementations for (e.g. 'MyInterface', 'MyTrait')"),
+		),
+	)
+
+	s.mcpServer.AddTool(implementationTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		symbolName, ok := request.Params.Arguments["symbolName"].(string)
+		if !ok {
+			return mcp.NewToolResultError("symbolName must be a string"), nil
+		}
+
+		coreLogger.Debug("Executing implementation for symbol: %s", symbolName)
+		clients := s.router.ActiveClients()
+		if len(clients) == 0 {
+			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
+		}
+		var lastErr error
+		for _, client := range clients {
+			text, err := tools.FindImplementation(ctx, client, symbolName)
+			if err == nil {
+				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+			}
+			lastErr = err
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to find implementations: %v", lastErr)), nil
+	})
+
+	getImplementationTool := mcp.NewTool("get_implementation",
+		mcp.WithDescription("Find concrete implementations of a symbol at the specified position. Useful for jumping from an interface method to its concrete implementations."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file containing the symbol"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+	)
+
+	s.mcpServer.AddTool(getImplementationTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+
+		coreLogger.Debug("Executing get_implementation for file: %s line: %d column: %d", filePath, line, column)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.FindImplementationAtPosition(ctx, client, filePath, line, column)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to find implementations: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	serverStatusTool := mcp.NewTool("server_status",
+		mcp.WithDescription("Check the health and status of all active LSP servers. Shows which servers are running, their PIDs, open file counts, and diagnostic summaries."),
+	)
+
+	s.mcpServer.AddTool(serverStatusTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		coreLogger.Debug("Executing server_status")
+		text := tools.ServerStatus(s.router)
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	incomingCallsTool := mcp.NewTool("incoming_calls",
+		mcp.WithDescription("Find all callers of a function or method at the specified position. Shows which functions call the target, forming an upward view of the call hierarchy."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file containing the function/method"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+	)
+
+	s.mcpServer.AddTool(incomingCallsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+
+		coreLogger.Debug("Executing incoming_calls for file: %s line: %d column: %d", filePath, line, column)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.GetIncomingCalls(ctx, client, filePath, line, column)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get incoming calls: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	outgoingCallsTool := mcp.NewTool("outgoing_calls",
+		mcp.WithDescription("Find all functions and methods called by the function at the specified position. Shows what the target calls, forming a downward view of the call hierarchy."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file containing the function/method"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+	)
+
+	s.mcpServer.AddTool(outgoingCallsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+
+		coreLogger.Debug("Executing outgoing_calls for file: %s line: %d column: %d", filePath, line, column)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.GetOutgoingCalls(ctx, client, filePath, line, column)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get outgoing calls: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
 	coreLogger.Info("Successfully registered all MCP tools")
 	return nil
 }

@@ -1,0 +1,13 @@
+Outgoing calls from: MiddleFunction (Function)
+
+1. LeafFunction (Function)
+   Detail: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace • callchain.go
+   File: callchain.go
+   Range: L6:C6 - L6:C18
+   Call sites: 1 [L12:C12]
+
+2. Sprintf (Function)
+   Detail: fmt • print.go
+   File: ../../../../../../../../../../usr/local/go/src/fmt/print.go
+   Range: L237:C6 - L237:C13
+   Call sites: 1 [L13:C13]

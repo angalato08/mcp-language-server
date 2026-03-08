@@ -1,0 +1,21 @@
+---
+
+File: service.go
+Range: L12:C1 - L18:C2
+
+12|func (s *ServiceImpl) Process() error {
+13|	if !s.Active {
+14|		return fmt.Errorf("service %s is not active", s.ServiceName)
+15|	}
+16|	fmt.Printf("Service %s processing\n", s.ServiceName)
+17|	return nil
+18|}
+
+
+File: types.go
+Range: L31:C1 - L34:C2
+
+31|func (s *SharedStruct) Process() error {
+32|	fmt.Printf("Processing %s with ID %d\n", s.Name, s.ID)
+33|	return nil
+34|}
