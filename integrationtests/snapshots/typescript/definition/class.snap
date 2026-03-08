@@ -16,4 +16,3 @@ Range: L14:C1 - L24:C2
 22|    console.log("Method called");
 23|  }
 24|}
-

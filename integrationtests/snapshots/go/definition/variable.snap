@@ -7,4 +7,3 @@ Container Name: github.com/isaacphi/mcp-language-server/integrationtests/test-ou
 Range: L28:C1 - L28:C22
 
 28|var TestVariable = 42
-

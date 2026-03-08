@@ -6,4 +6,3 @@ Kind: Constant
 Range: L33:C1 - L33:C31
 
 33|export const TestConstant = 42;
-

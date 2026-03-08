@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -154,6 +155,12 @@ func (ts *TestSuite) Setup() error {
 	}
 	ts.WorkspaceDir = workspaceDir
 	ts.t.Logf("Copied workspace from %s to %s", ts.Config.WorkspaceDir, workspaceDir)
+
+	// Check if LSP command exists before starting
+	if _, err := exec.LookPath(ts.Config.Command); err != nil {
+		ts.t.Skipf("Skipping test: LSP server %q not found in PATH", ts.Config.Command)
+		return nil
+	}
 
 	// Create and initialize LSP client
 	client, err := lsp.NewClient(ts.Config.Command, ts.Config.Args...)

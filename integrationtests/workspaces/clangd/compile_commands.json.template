@@ -1,0 +1,17 @@
+[
+  {
+    "directory": "WORKDIR",
+    "command": "/usr/bin/clang++ -std=c++17 -Iinclude -c src/main.cpp -o src/main.o",
+    "file": "src/main.cpp"
+  },
+  {
+    "directory": "WORKDIR",
+    "command": "/usr/bin/clang++ -std=c++17 -Iinclude -c src/helper.cpp -o src/helper.o",
+    "file": "src/helper.cpp"
+  },
+  {
+    "directory": "WORKDIR",
+    "command": "/usr/bin/clang++ -std=c++17 -Iinclude -c src/consumer.cpp -o src/consumer.o",
+    "file": "src/consumer.cpp"
+  }
+]

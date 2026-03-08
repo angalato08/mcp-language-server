@@ -16,7 +16,7 @@ import (
 // that have references across different files
 func TestFindReferences(t *testing.T) {
 	// Helper function to open all files and wait for indexing
-	openAllFilesAndWait := func(suite *common.TestSuite, ctx context.Context) {
+	openAllFilesAndWait := func(suite *common.TestSuite) {
 		// Open one file so that clangd loads compiles commands and begins indexing
 		filesToOpen := []string{
 			"src/main.cpp",
@@ -24,23 +24,20 @@ func TestFindReferences(t *testing.T) {
 
 		for _, file := range filesToOpen {
 			filePath := filepath.Join(suite.WorkspaceDir, file)
-			err := suite.Client.OpenFile(ctx, filePath)
+			err := suite.Client.OpenFile(suite.Context, filePath)
 			if err != nil {
 				// Don't fail the test, some files might not exist in certain tests
 				t.Logf("Note: Failed to open %s: %v", file, err)
 			}
 		}
 		// Wait for indexing to complete. clangd won't index files until they are opened.
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
 	suite := internal.GetTestSuite(t)
 
-	ctx, cancel := context.WithTimeout(suite.Context, 30*time.Second) // Increased timeout for clangd references
-	defer cancel()
-
 	// Open all files and wait for clangd to index them
-	openAllFilesAndWait(suite, ctx)
+	openAllFilesAndWait(suite)
 
 	tests := []struct {
 		name          string
@@ -76,7 +73,10 @@ func TestFindReferences(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Call the FindReferences tool
+			// Call the FindReferences tool with fresh context
+			ctx, cancel := context.WithTimeout(suite.Context, 20*time.Second)
+			defer cancel()
+
 			result, err := tools.FindReferences(ctx, suite.Client, tc.symbolName, -1)
 			if err != nil {
 				t.Fatalf("Failed to find references for %s: %v. Result: %s", tc.symbolName, err, result)
@@ -96,6 +96,67 @@ func TestFindReferences(t *testing.T) {
 
 			// Use snapshot testing to verify exact output
 			common.SnapshotTest(t, "clangd", "references", tc.snapshotName, result)
+		})
+	}
+}
+
+func TestGetReferencesAtPosition(t *testing.T) {
+	suite := internal.GetTestSuite(t)
+
+	// Explicitly open files to trigger indexing
+	filesToOpen := []string{"src/main.cpp", "src/helper.cpp", "src/consumer.cpp"}
+	for _, f := range filesToOpen {
+		suite.Client.OpenFile(suite.Context, filepath.Join(suite.WorkspaceDir, f))
+	}
+
+	// Wait for indexing
+	time.Sleep(10 * time.Second)
+
+	tests := []struct {
+		name          string
+		filePath      string
+		line          int
+		column        int
+		expectedText  string
+		expectedFiles int
+	}{
+		{
+			name:          "References of helperFunction",
+			filePath:      "src/main.cpp",
+			line:          14,
+			column:        3,
+			expectedText:  "helperFunction",
+			expectedFiles: 2,
+		},
+		{
+			name:          "References of foo_bar",
+			filePath:      "src/main.cpp",
+			line:          11,
+			column:        3,
+			expectedText:  "foo_bar",
+			expectedFiles: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			absPath := filepath.Join(suite.WorkspaceDir, tc.filePath)
+			ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
+			defer cancel()
+
+			result, err := tools.FindReferencesAtPosition(ctx, suite.Client, absPath, tc.line, tc.column, -1)
+			if err != nil {
+				t.Fatalf("Failed to get references at position: %v", err)
+			}
+
+			if !strings.Contains(result, tc.expectedText) {
+				t.Errorf("References result does not contain expected text %q\nResult: %s", tc.expectedText, result)
+			}
+
+			fileCount := countFilesInResult(result, suite.WorkspaceDir)
+			if fileCount < tc.expectedFiles {
+				t.Errorf("Expected references in at least %d files, but found %d", tc.expectedFiles, fileCount)
+			}
 		})
 	}
 }

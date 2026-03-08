@@ -5,11 +5,11 @@
 [![GoDoc](https://pkg.go.dev/badge/github.com/isaacphi/mcp-language-server)](https://pkg.go.dev/github.com/isaacphi/mcp-language-server)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/isaacphi/mcp-language-server)](https://github.com/isaacphi/mcp-language-server/blob/main/go.mod)
 
-This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs and exposes a [language server](https://microsoft.github.io/language-server-protocol/) to LLMs. Not a language server for MCP, whatever that would be.
+This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs and exposes one or more [language servers](https://microsoft.github.io/language-server-protocol/) to LLMs. Not a language server for MCP, whatever that would be.
 
 ## Demo
 
-`mcp-language-server` helps MCP enabled clients navigate codebases more easily by giving them access semantic tools like get definition, references, rename, and diagnostics.
+`mcp-language-server` helps MCP enabled clients navigate codebases more easily by giving them access to semantic tools like get definition, references, rename, diagnostics, and workspace symbols.
 
 ![Demo](demo.gif)
 
@@ -17,14 +17,41 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 
 1. **Install Go**: Follow instructions at <https://golang.org/doc/install>
 2. **Install or update this server**: `go install github.com/isaacphi/mcp-language-server@latest`
-3. **Install a language server**: _follow one of the guides below_
+3. **Install language servers**: Install the LSP(s) for the languages you use in your project.
 4. **Configure your MCP client**: _follow one of the guides below_
+
+The server supports running multiple LSPs simultaneously for polyglot repositories. You can pass the `--lsp` flag multiple times. The flag supports two syntaxes:
+- **Auto-detect**: Just pass the command (e.g., `--lsp gopls`). The server will auto-detect well-known language servers.
+- **Explicit**: Pass `languageID:command` (e.g., `--lsp python:pyright-langserver`).
+
+<details>
+  <summary>Polyglot (Multiple Languages)</summary>
+  <div>
+    <p><strong>Configure your MCP client</strong>: This will run multiple language servers simultaneously and route requests based on the file extension.</p>
+
+<pre>
+{
+  "mcpServers": {
+    "language-server": {
+      "command": "mcp-language-server",
+      "args": [
+        "--workspace", "/Users/you/dev/yourproject/", 
+        "--lsp", "gopls",
+        "--lsp", "python:pyright-langserver",
+        "--lsp", "typescript-language-server"
+      ]
+    }
+  }
+}
+</pre>
+  </div>
+</details>
 
 <details>
   <summary>Go (gopls)</summary>
   <div>
     <p><strong>Install gopls</strong>: <code>go install golang.org/x/tools/gopls@latest</code></p>
-    <p><strong>Configure your MCP client</strong>: This will be different but similar for each client. For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
+    <p><strong>Configure your MCP client</strong>: For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
 
 <pre>
 {
@@ -51,11 +78,12 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 
   </div>
 </details>
+
 <details>
   <summary>Rust (rust-analyzer)</summary>
   <div>
     <p><strong>Install rust-analyzer</strong>: <code>rustup component add rust-analyzer</code></p>
-    <p><strong>Configure your MCP client</strong>: This will be different but similar for each client. For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
+    <p><strong>Configure your MCP client</strong>: For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
 
 <pre>
 {
@@ -74,11 +102,12 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 </pre>
   </div>
 </details>
+
 <details>
   <summary>Python (pyright)</summary>
   <div>
     <p><strong>Install pyright</strong>: <code>npm install -g pyright</code></p>
-    <p><strong>Configure your MCP client</strong>: This will be different but similar for each client. For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
+    <p><strong>Configure your MCP client</strong>: For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
 
 <pre>
 {
@@ -89,9 +118,7 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
         "--workspace",
         "/Users/you/dev/yourproject/",
         "--lsp",
-        "pyright-langserver",
-        "--",
-        "--stdio"
+        "python:pyright-langserver --stdio"
       ]
     }
   }
@@ -99,11 +126,12 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 </pre>
   </div>
 </details>
+
 <details>
   <summary>Typescript (typescript-language-server)</summary>
   <div>
     <p><strong>Install typescript-language-server</strong>: <code>npm install -g typescript typescript-language-server</code></p>
-    <p><strong>Configure your MCP client</strong>: This will be different but similar for each client. For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
+    <p><strong>Configure your MCP client</strong>: For Claude Desktop, add the following to <code>~/Library/Application\ Support/Claude/claude_desktop_config.json</code></p>
 
 <pre>
 {
@@ -114,9 +142,7 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
         "--workspace",
         "/Users/you/dev/yourproject/",
         "--lsp",
-        "typescript-language-server",
-        "--",
-        "--stdio"
+        "typescript:typescript-language-server --stdio"
       ]
     }
   }
@@ -124,11 +150,12 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 </pre>
   </div>
 </details>
+
 <details>
   <summary>C/C++ (clangd)</summary>
   <div>
     <p><strong>Install clangd</strong>: Download prebuilt binaries from the <a href="https://github.com/clangd/clangd/releases">official LLVM releases page</a> or install via your system's package manager (e.g., <code>apt install clangd</code>, <code>brew install clangd</code>).</p>
-    <p><strong>Configure your MCP client</strong>: This will be different but similar for each client. For Claude Desktop, add the following to <code>~/Library/Application\\ Support/Claude/claude_desktop_config.json</code></p>
+    <p><strong>Configure your MCP client</strong>: For Claude Desktop, add the following to <code>~/Library/Application\\ Support/Claude/claude_desktop_config.json</code></p>
 
 <pre>
 {
@@ -139,9 +166,7 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
         "--workspace",
         "/Users/you/dev/yourproject/",
         "--lsp",
-        "/path/to/your/clangd_binary",
-        "--",
-        "--compile-commands-dir=/path/to/yourproject/build_or_compile_commands_dir"
+        "c:/path/to/your/clangd_binary --compile-commands-dir=/path/to/yourproject/build_or_compile_commands_dir"
       ]
     }
   }
@@ -155,13 +180,14 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
     </ul>
   </div>
 </details>
+
 <details>
   <summary>Other</summary>
   <div>
     <p>I have only tested this repo with the servers above but it should be compatible with many more. Note:</p>
     <ul>
       <li>The language server must communicate over stdio.</li>
-      <li>Any aruments after <code>--</code> are sent as arguments to the language server.</li>
+      <li>Any arguments after a space in the <code>--lsp</code> flag are sent as arguments to the language server.</li>
       <li>Any env variables are passed on to the language server.</li>
     </ul>
   </div>
@@ -171,6 +197,8 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 
 - `definition`: Retrieves the complete source code definition of any symbol (function, type, constant, etc.) from your codebase.
 - `references`: Locates all usages and references of a symbol throughout the codebase.
+- `document_symbols`: Lists all symbols (functions, types, methods, constants, etc.) in a file with hierarchy. Useful for understanding file structure at a glance.
+- `workspace_symbols`: Searches for symbols across the entire project by name. Returns a concise listing of matching symbols with their locations.
 - `diagnostics`: Provides diagnostic information for a specific file, including warnings and errors.
 - `hover`: Display documentation, type hints, or other hover information for a given location.
 - `rename_symbol`: Rename a symbol across a project.
@@ -181,6 +209,8 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 This codebase makes use of edited code from [gopls](https://go.googlesource.com/tools/+/refs/heads/master/gopls/internal/protocol) to handle LSP communication. See ATTRIBUTION for details. Everything here is covered by a permissive BSD style license.
 
 [mcp-go](https://github.com/mark3labs/mcp-go) is used for MCP communication. Thank you for your service.
+
+The server includes built-in lifecycle management. If an underlying language server crashes or stops unexpectedly, `mcp-language-server` will automatically attempt to restart it with an exponential backoff.
 
 This is beta software. Please let me know by creating an issue if you run into any problems or have suggestions of any kind.
 
@@ -223,7 +253,7 @@ Configure your Claude Desktop (or similar) to use the local binary:
         "--workspace",
         "/path/to/workspace",
         "--lsp",
-        "language-server-executable"
+        "gopls"
       ],
       "env": {
         "LOG_LEVEL": "DEBUG"

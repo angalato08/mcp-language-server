@@ -7,4 +7,3 @@ Container Name: github.com/isaacphi/mcp-language-server/integrationtests/test-ou
 Range: L25:C1 - L25:C38
 
 25|const TestConstant = "constant value"
-

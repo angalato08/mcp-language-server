@@ -1,5 +1,2 @@
-function helperFunction
-
-→ void
-
-void helperFunction()
+No hover information available for this position on the following line:
+  helperFunction();

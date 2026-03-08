@@ -15,4 +15,3 @@ Range: L6:C1 - L15:C29
 13|        A greeting message
 14|    """
 15|    return f"Hello, {name}!"
-

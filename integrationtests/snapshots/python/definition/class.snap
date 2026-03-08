@@ -47,4 +47,3 @@ Range: L18:C1 - L59:C22
 57|            else:
 58|                result[item] = 1
 59|        return result
-

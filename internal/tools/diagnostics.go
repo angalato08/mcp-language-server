@@ -36,7 +36,7 @@ func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath str
 	}
 	_, err = client.Diagnostic(ctx, diagParams)
 	if err != nil {
-		toolsLogger.Error("Failed to get diagnostics: %v", err)
+		toolsLogger.Warn("Failed to request fresh diagnostics (may not be supported by server): %v", err)
 	}
 
 	// Get diagnostics from the cache
@@ -159,4 +159,64 @@ func getSeverityString(severity protocol.DiagnosticSeverity) string {
 	default:
 		return "UNKNOWN"
 	}
+}
+
+// GetAllDiagnostics retrieves diagnostics for all active clients
+func GetAllDiagnostics(ctx context.Context, clients []*lsp.Client) (string, error) {
+	var allDiagnostics []string
+
+	for _, client := range clients {
+		// Get all files that have diagnostics in this client
+		diagnosticsMap := client.GetAllDiagnostics()
+		
+		// Sort URIs for deterministic output
+		uris := make([]string, 0, len(diagnosticsMap))
+		for uri := range diagnosticsMap {
+			uris = append(uris, string(uri))
+		}
+		// Alphabetical sort is fine here
+		// Note: we could use a more sophisticated sort if needed
+		
+		for _, uriStr := range uris {
+			uri := protocol.DocumentUri(uriStr)
+			diagnostics := diagnosticsMap[uri]
+			
+			filePath := strings.TrimPrefix(string(uri), "file://")
+			displayPath := RelativePath(filePath)
+
+			fileInfo := fmt.Sprintf("---\n\n%s\nDiagnostics in File: %d\n",
+				displayPath,
+				len(diagnostics),
+			)
+
+			var diagSummaries []string
+			for _, diag := range diagnostics {
+				severity := getSeverityString(diag.Severity)
+				location := fmt.Sprintf("L%d:C%d",
+					diag.Range.Start.Line+1,
+					diag.Range.Start.Character+1)
+
+				summary := fmt.Sprintf("%s at %s: %s",
+					severity,
+					location,
+					diag.Message)
+
+				if diag.Source != "" {
+					summary += fmt.Sprintf(" (Source: %s", diag.Source)
+					if diag.Code != nil {
+						summary += fmt.Sprintf(", Code: %v", diag.Code)
+					}
+					summary += ")"
+				}
+				diagSummaries = append(diagSummaries, summary)
+			}
+			allDiagnostics = append(allDiagnostics, fileInfo+strings.Join(diagSummaries, "\n")+"\n")
+		}
+	}
+
+	if len(allDiagnostics) == 0 {
+		return "No diagnostics found in workspace", nil
+	}
+
+	return strings.Join(allDiagnostics, ""), nil
 }

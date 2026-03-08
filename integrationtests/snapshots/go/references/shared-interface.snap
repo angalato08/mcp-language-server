@@ -18,7 +18,6 @@ At: L33:C12
 37|	values := []SharedType{1, 2, 3}
 38|	for _, v := range values {
 
----
 
 /TEST_OUTPUT/workspace/consumer.go
 References in File: 1

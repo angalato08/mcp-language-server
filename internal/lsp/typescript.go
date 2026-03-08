@@ -6,49 +6,68 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/isaacphi/mcp-language-server/internal/watcher/common"
 )
 
 // initializeTypescriptLanguageServer initializes the TypeScript language server
 // with specific configurations and opens all TypeScript files in the workspace.
-func initializeTypescriptLanguageServer(ctx context.Context, client *Client, workspaceDir string) error {
+func initializeTypescriptLanguageServer(ctx context.Context, c *Client, workspaceDir string) error {
 	lspLogger.Info("Initializing TypeScript language server with workspace: %s", workspaceDir)
 
-	// First, open all TypeScript files in the workspace
-	if err := openAllTypeScriptFiles(ctx, client, workspaceDir); err != nil {
-		return fmt.Errorf("failed to open TypeScript files: %w", err)
+	// Get default watcher config for exclusions
+	config := common.DefaultWatcherConfig()
+
+	// Initialize gitignore matcher if .gitignore exists
+	var ignoreMatcher *common.GitignoreMatcher
+	gitignorePath := filepath.Join(workspaceDir, ".gitignore")
+	if _, err := os.Stat(gitignorePath); err == nil {
+		ignoreMatcher, err = common.NewGitignoreMatcher(workspaceDir)
+		if err != nil {
+			lspLogger.Warn("Failed to initialize gitignore matcher: %v", err)
+		} else {
+			lspLogger.Info("Initialized gitignore matcher for %s", workspaceDir)
+		}
 	}
 
-	return nil
-}
-
-// openAllTypeScriptFiles finds and opens all TypeScript files in the workspace
-func openAllTypeScriptFiles(ctx context.Context, client *Client, workspaceDir string) error {
 	lspLogger.Info("Opening all TypeScript files in workspace: %s", workspaceDir)
-
-	// Track count of opened files for logging
 	fileCount := 0
-
-	// Walk the workspace directory
 	err := filepath.Walk(workspaceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip directories
+		// Check if it's a directory
 		if info.IsDir() {
-			// Skip node_modules, .git, and other common directories to avoid processing too many files
-			basename := filepath.Base(path)
-			if basename == "node_modules" || basename == ".git" || strings.HasPrefix(basename, ".") {
+			dirName := filepath.Base(path)
+			// Skip excluded directories (like .git, node_modules)
+			if config.ExcludedDirs[dirName] {
+				return filepath.SkipDir
+			}
+			// Skip if ignored by gitignore
+			if ignoreMatcher != nil && ignoreMatcher.IsIgnored(path) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		// Check if file is a TypeScript file
-		if strings.HasSuffix(path, ".ts") || strings.HasSuffix(path, ".tsx") {
-			if err := client.OpenFile(ctx, path); err != nil {
-				lspLogger.Warn("Failed to open TypeScript file %s: %v", path, err)
-				return nil // Continue with other files even if one fails
+		// Check if it's a TypeScript file
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext == ".ts" || ext == ".tsx" {
+			// Skip if ignored by gitignore
+			if ignoreMatcher != nil && ignoreMatcher.IsIgnored(path) {
+				return nil
+			}
+
+			// Skip large files
+			if info.Size() > config.MaxFileSize {
+				return nil
+			}
+
+			err := c.OpenFile(ctx, path)
+			if err != nil {
+				lspLogger.Error("Failed to open TypeScript file %s: %v", path, err)
+				// Continue opening other files even if one fails
 			}
 			fileCount++
 		}

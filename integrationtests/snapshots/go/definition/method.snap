@@ -9,4 +9,3 @@ Range: L12:C1 - L14:C2
 12|func (t *TestStruct) Method() string {
 13|	return t.Name
 14|}
-

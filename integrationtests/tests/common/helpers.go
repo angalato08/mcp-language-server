@@ -126,6 +126,12 @@ var lspNormalizers = []struct {
 }{
 	// gopls struct size annotations: "// size=56 (0x38)" or "// size=56 (0x38), class=64 (0x40)"
 	{regexp.MustCompile(`// size=\d+ \(0x[0-9a-fA-F]+\)(?:, class=\d+ \(0x[0-9a-fA-F]+\))?`), "// size=<normalized>"},
+	// Markdown code blocks (some LSPs wrap in ```lang ... ```, others don't)
+	{regexp.MustCompile("(?s)```[a-zA-Z]*\\n(.*?)\\n```"), "$1"},
+	// HTML entities sometimes used in LSP markdown (like &nbsp;)
+	{regexp.MustCompile(`&nbsp;`), " "},
+	// Separators (some use ---, some use horizontal rules)
+	{regexp.MustCompile(`\n---\n`), "\n"},
 }
 
 // normalizeOutput applies all normalizations to make snapshots resilient to
@@ -135,6 +141,18 @@ func normalizeOutput(input string) string {
 	for _, n := range lspNormalizers {
 		result = n.re.ReplaceAllString(result, n.repl)
 	}
+
+	// Normalize whitespace:
+	// 1. Replace all windows line endings with unix
+	result = strings.ReplaceAll(result, "\r\n", "\n")
+	// 2. Trim trailing spaces on each line
+	lines := strings.Split(result, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	// 3. Join and trim leading/trailing empty lines
+	result = strings.Trim(strings.Join(lines, "\n"), "\n")
+
 	return result
 }
 

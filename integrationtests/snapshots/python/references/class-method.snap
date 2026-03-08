@@ -6,19 +6,18 @@ At: L40:C19
 
 31|def another_consumer_function() -> None:
 ...
-35|    
+35|
 36|    # Use shared class with a different type parameter
 37|    shared = SharedClass[float]("another example", 3.14)
-38|    
+38|
 39|    # Use methods from shared class
 40|    name = shared.get_name()
 41|    value = shared.get_value()
 42|    print(f"Name: {name}, Value: {value}")
-43|    
+43|
 44|    # Use our own implementation
 45|    impl = AnotherImplementation()
 
----
 
 /TEST_OUTPUT/workspace/consumer.py
 References in File: 1

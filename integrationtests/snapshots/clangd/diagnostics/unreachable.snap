@@ -1,11 +1,15 @@
 /TEST_OUTPUT/workspace/src/main.cpp
-Diagnostics in File: 1
-WARNING at L14:C3: Code will never be executed (Source: clang, Code: -Wunreachable-code)
+Diagnostics in File: 2
+ERROR at L2:C10: 'helper.hpp' file not found (Source: clang, Code: pp_file_not_found)
+ERROR at L11:C3: Use of undeclared identifier 'helperFunction' (Source: clang, Code: undeclared_var_use)
 
-10|int main() {
+1|#include <iostream>
+2|#include "helper.hpp"
+3|
+4|// FooBar is a simple function for testing
 ...
+ 9|
+10|int main() {
+11|  helperFunction();
 12|  return 0;
 13|
-14|  foo_bar();
-15|
-16|  // Intentional error: unreachable code

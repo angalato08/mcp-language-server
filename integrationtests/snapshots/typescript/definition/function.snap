@@ -9,4 +9,3 @@ Range: L2:C1 - L5:C2
 3|  return "Hello, World!";
 4|  console.log("Unreachable code"); // This is unreachable code
 5|}
-

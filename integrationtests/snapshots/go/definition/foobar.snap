@@ -11,4 +11,3 @@ Range: L6:C1 - L10:C2
  8|	fmt.Println("Unreachable code") // This is unreachable code
  9|	return 3
 10|}
-

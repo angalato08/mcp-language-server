@@ -2,7 +2,6 @@
     self: Self@TestClass,
     increment: int
 ) -> int
-
 Increment the value by the given amount.
 
 Args:

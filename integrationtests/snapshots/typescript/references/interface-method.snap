@@ -8,17 +8,16 @@ At: L21:C5
 ...
 16|  // Using SharedClass differently
 17|  const instance = new SharedClass("another instance");
-18|  
+18|
 19|  // Using SharedInterface
 20|  const iface: SharedInterface = {
 21|    getName: () => "custom implementation",
 22|    getValue: () => 100
 23|  };
-24|  
+24|
 25|  // Using SharedType
 26|  const mixedArray: SharedType[] = ["string", 42, "another"];
 
----
 
 /TEST_OUTPUT/workspace/consumer.ts
 References in File: 2
@@ -26,22 +25,21 @@ At: L22:C21, L17:C24
 
 12|export function ConsumerFunction(): void {
 13|  console.log("Consumer calling:", SharedFunction());
-14|  
+14|
 15|  // Using SharedClass
 16|  const instance = new SharedClass("test instance");
 17|  console.log(instance.getName());
 18|  instance.helperMethod();
-19|  
+19|
 20|  // Using SharedInterface
 21|  const iface: SharedInterface = instance;
 22|  console.log(iface.getName());
 23|  console.log(iface.getValue());
-24|  
+24|
 25|  // Using SharedType
 26|  const value: SharedType = "string value";
 27|  const numValue: SharedType = 42;
 
----
 
 /TEST_OUTPUT/workspace/helper.ts
 References in File: 1
@@ -53,15 +51,14 @@ At: L22:C3
 18|  constructor(name: string) {
 19|    this.name = name;
 20|  }
-21|  
+21|
 22|  getName(): string {
 23|    return this.name;
 24|  }
-25|  
+25|
 26|  getValue(): number {
 27|    return 42;
 
----
 
 /TEST_OUTPUT/workspace/another_consumer.ts
 References in File: 1
@@ -71,17 +68,16 @@ At: L21:C5
 ...
 16|  // Using SharedClass differently
 17|  const instance = new SharedClass("another instance");
-18|  
+18|
 19|  // Using SharedInterface
 20|  const iface: SharedInterface = {
 21|    getName: () => "custom implementation",
 22|    getValue: () => 100
 23|  };
-24|  
+24|
 25|  // Using SharedType
 26|  const mixedArray: SharedType[] = ["string", 42, "another"];
 
----
 
 /TEST_OUTPUT/workspace/consumer.ts
 References in File: 2
@@ -89,22 +85,21 @@ At: L22:C21, L17:C24
 
 12|export function ConsumerFunction(): void {
 13|  console.log("Consumer calling:", SharedFunction());
-14|  
+14|
 15|  // Using SharedClass
 16|  const instance = new SharedClass("test instance");
 17|  console.log(instance.getName());
 18|  instance.helperMethod();
-19|  
+19|
 20|  // Using SharedInterface
 21|  const iface: SharedInterface = instance;
 22|  console.log(iface.getName());
 23|  console.log(iface.getValue());
-24|  
+24|
 25|  // Using SharedType
 26|  const value: SharedType = "string value";
 27|  const numValue: SharedType = 42;
 
----
 
 /TEST_OUTPUT/workspace/helper.ts
 References in File: 1

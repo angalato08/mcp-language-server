@@ -18,7 +18,6 @@ At: L19:C15
 23|	// Implement the interface with a custom type
 24|	type CustomImplementor struct {
 
----
 
 /TEST_OUTPUT/workspace/consumer.go
 References in File: 1

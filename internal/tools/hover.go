@@ -38,8 +38,9 @@ func GetHoverInfo(ctx context.Context, client *lsp.Client, filePath string, line
 
 	var result strings.Builder
 
-	// Process the hover contents based on Markup content
-	if hoverResult.Contents.Value == "" {
+	// Process the hover contents
+	content := formatHoverContents(hoverResult.Contents)
+	if content == "" {
 		// Extract the line where the hover was requested
 		lineText, err := ExtractTextFromLocation(protocol.Location{
 			URI: uri,
@@ -59,8 +60,41 @@ func GetHoverInfo(ctx context.Context, client *lsp.Client, filePath string, line
 		}
 		result.WriteString(fmt.Sprintf("No hover information available for this position on the following line:\n%s", lineText))
 	} else {
-		result.WriteString(hoverResult.Contents.Value)
+		result.WriteString(content)
 	}
 
 	return result.String(), nil
+}
+
+func formatHoverContents(contents protocol.Or_Hover_contents) string {
+	switch v := contents.Value.(type) {
+	case protocol.MarkupContent:
+		return v.Value
+	case protocol.MarkedString:
+		return formatMarkedString(v)
+	case []protocol.MarkedString:
+		var parts []string
+		for _, ms := range v {
+			parts = append(parts, formatMarkedString(ms))
+		}
+		return strings.Join(parts, "\n\n")
+	case string:
+		return v
+	default:
+		return ""
+	}
+}
+
+func formatMarkedString(ms protocol.MarkedString) string {
+	switch v := ms.Value.(type) {
+	case string:
+		return v
+	case protocol.MarkedStringWithLanguage:
+		if v.Language != "" {
+			return fmt.Sprintf("```%s\n%s\n```", v.Language, v.Value)
+		}
+		return v.Value
+	default:
+		return ""
+	}
 }

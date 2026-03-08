@@ -11,6 +11,19 @@ import (
 func (s *mcpServer) registerTools() error {
 	coreLogger.Debug("Registering MCP tools")
 
+	// Helper function to extract int from map
+	getInt := func(args map[string]any, key string, defaultVal int) int {
+		if v, ok := args[key]; ok {
+			switch val := v.(type) {
+			case float64:
+				return int(val)
+			case int:
+				return val
+			}
+		}
+		return defaultVal
+	}
+
 	applyTextEditTool := mcp.NewTool("edit_file",
 		mcp.WithDescription("Apply multiple text edits to a file."),
 		mcp.WithArray("edits",
@@ -42,19 +55,16 @@ func (s *mcpServer) registerTools() error {
 	)
 
 	s.mcpServer.AddTool(applyTextEditTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
 		filePath, ok := request.Params.Arguments["filePath"].(string)
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
 
-		// Extract edits array
 		editsArg, ok := request.Params.Arguments["edits"]
 		if !ok {
 			return mcp.NewToolResultError("edits is required"), nil
 		}
 
-		// Type assert and convert the edits
 		editsArray, ok := editsArg.([]any)
 		if !ok {
 			return mcp.NewToolResultError("edits must be an array"), nil
@@ -67,33 +77,24 @@ func (s *mcpServer) registerTools() error {
 				return mcp.NewToolResultError("each edit must be an object"), nil
 			}
 
-			startLine, ok := editMap["startLine"].(float64)
-			if !ok {
-				return mcp.NewToolResultError("startLine must be a number"), nil
-			}
-
-			endLine, ok := editMap["endLine"].(float64)
-			if !ok {
-				return mcp.NewToolResultError("endLine must be a number"), nil
-			}
-
-			newText, _ := editMap["newText"].(string) // newText can be empty
+			startLine := getInt(editMap, "startLine", 0)
+			endLine := getInt(editMap, "endLine", 0)
+			newText, _ := editMap["newText"].(string)
 
 			edits = append(edits, tools.TextEdit{
-				StartLine: int(startLine),
-				EndLine:   int(endLine),
+				StartLine: startLine,
+				EndLine:   endLine,
 				NewText:   newText,
 			})
 		}
 
 		coreLogger.Debug("Executing edit_file for file: %s", filePath)
-		client, err := s.router.ClientForFile(s.ctx, filePath)
+		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		response, err := tools.ApplyTextEdits(s.ctx, client, filePath, edits)
+		response, err := tools.ApplyTextEdits(ctx, client, filePath, edits)
 		if err != nil {
-			coreLogger.Error("Failed to apply edits: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to apply edits: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(response)), nil
@@ -108,29 +109,127 @@ func (s *mcpServer) registerTools() error {
 	)
 
 	s.mcpServer.AddTool(readDefinitionTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
 		symbolName, ok := request.Params.Arguments["symbolName"].(string)
 		if !ok {
 			return mcp.NewToolResultError("symbolName must be a string"), nil
 		}
 
 		coreLogger.Debug("Executing definition for symbol: %s", symbolName)
-
-		// Symbol-based: try all active clients, return first success
 		clients := s.router.ActiveClients()
 		if len(clients) == 0 {
 			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
 		}
 		var lastErr error
 		for _, client := range clients {
-			text, err := tools.ReadDefinition(s.ctx, client, symbolName)
-			if err != nil {
-				lastErr = err
-				continue
+			text, err := tools.ReadDefinition(ctx, client, symbolName)
+			if err == nil {
+				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 			}
-			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+			lastErr = err
 		}
 		return mcp.NewToolResultError(fmt.Sprintf("failed to get definition: %v", lastErr)), nil
+	})
+
+	typeDefinitionTool := mcp.NewTool("type_definition",
+		mcp.WithDescription("Read the type definition of a symbol from the codebase. Returns the complete implementation code where the symbol's type is defined."),
+		mcp.WithString("symbolName",
+			mcp.Required(),
+			mcp.Description("The name of the symbol whose type definition you want to find"),
+		),
+	)
+
+	s.mcpServer.AddTool(typeDefinitionTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		symbolName, ok := request.Params.Arguments["symbolName"].(string)
+		if !ok {
+			return mcp.NewToolResultError("symbolName must be a string"), nil
+		}
+
+		coreLogger.Debug("Executing type_definition for symbol: %s", symbolName)
+		clients := s.router.ActiveClients()
+		if len(clients) == 0 {
+			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
+		}
+		var lastErr error
+		for _, client := range clients {
+			text, err := tools.ReadTypeDefinition(ctx, client, symbolName)
+			if err == nil {
+				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+			}
+			lastErr = err
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get type definition: %v", lastErr)), nil
+	})
+
+	getDefinitionTool := mcp.NewTool("get_definition",
+		mcp.WithDescription("Read the source code definition of a symbol at the specified position. Returns the complete implementation code where the symbol is defined."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file to get definition for"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+	)
+
+	s.mcpServer.AddTool(getDefinitionTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+
+		coreLogger.Debug("Executing get_definition for file: %s line: %d column: %d", filePath, line, column)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.ReadDefinitionAtPosition(ctx, client, filePath, line, column)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get definition: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	getTypeDefinitionTool := mcp.NewTool("get_type_definition",
+		mcp.WithDescription("Read the type definition of a symbol at the specified position. Returns the complete implementation code where the symbol's type is defined."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file to get type definition for"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+	)
+
+	s.mcpServer.AddTool(getTypeDefinitionTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+
+		coreLogger.Debug("Executing get_type_definition for file: %s line: %d column: %d", filePath, line, column)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.ReadTypeDefinitionAtPosition(ctx, client, filePath, line, column)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get type definition: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	findReferencesTool := mcp.NewTool("references",
@@ -145,34 +244,66 @@ func (s *mcpServer) registerTools() error {
 	)
 
 	s.mcpServer.AddTool(findReferencesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
 		symbolName, ok := request.Params.Arguments["symbolName"].(string)
 		if !ok {
 			return mcp.NewToolResultError("symbolName must be a string"), nil
 		}
-
-		limit := 30 // default
-		if limitArg, ok := request.Params.Arguments["limit"].(float64); ok {
-			limit = int(limitArg)
-		}
+		limit := getInt(request.Params.Arguments, "limit", 30)
 
 		coreLogger.Debug("Executing references for symbol: %s", symbolName)
-
-		// Symbol-based: try all active clients, return first success
 		clients := s.router.ActiveClients()
 		if len(clients) == 0 {
 			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
 		}
 		var lastErr error
 		for _, client := range clients {
-			text, err := tools.FindReferences(s.ctx, client, symbolName, limit)
-			if err != nil {
-				lastErr = err
-				continue
+			text, err := tools.FindReferences(ctx, client, symbolName, limit)
+			if err == nil {
+				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 			}
-			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+			lastErr = err
 		}
 		return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", lastErr)), nil
+	})
+
+	getReferencesTool := mcp.NewTool("get_references",
+		mcp.WithDescription("Find all usages and references of a symbol at the specified position."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file containing the symbol"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of references to return. Default 30. Use -1 for all."),
+		),
+	)
+
+	s.mcpServer.AddTool(getReferencesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+		limit := getInt(request.Params.Arguments, "limit", 30)
+
+		coreLogger.Debug("Executing get_references for file: %s line: %d column: %d", filePath, line, column)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.FindReferencesAtPosition(ctx, client, filePath, line, column, limit)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	getDiagnosticsTool := mcp.NewTool("diagnostics",
@@ -181,9 +312,9 @@ func (s *mcpServer) registerTools() error {
 			mcp.Required(),
 			mcp.Description("The path to the file to get diagnostics for"),
 		),
-		mcp.WithBoolean("contextLines",
+		mcp.WithNumber("contextLines",
 			mcp.Description("Lines to include around each diagnostic."),
-			mcp.DefaultBool(false),
+			mcp.DefaultNumber(5),
 		),
 		mcp.WithBoolean("showLineNumbers",
 			mcp.Description("If true, adds line numbers to the output"),
@@ -195,104 +326,45 @@ func (s *mcpServer) registerTools() error {
 	)
 
 	s.mcpServer.AddTool(getDiagnosticsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
 		filePath, ok := request.Params.Arguments["filePath"].(string)
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
-
-		contextLines := 5 // default value
-		if contextLinesArg, ok := request.Params.Arguments["contextLines"].(int); ok {
-			contextLines = contextLinesArg
+		contextLines := getInt(request.Params.Arguments, "contextLines", 5)
+		showLineNumbers := true
+		if v, ok := request.Params.Arguments["showLineNumbers"].(bool); ok {
+			showLineNumbers = v
 		}
-
-		showLineNumbers := true // default value
-		if showLineNumbersArg, ok := request.Params.Arguments["showLineNumbers"].(bool); ok {
-			showLineNumbers = showLineNumbersArg
-		}
-
-		limit := 20 // default
-		if limitArg, ok := request.Params.Arguments["limit"].(float64); ok {
-			limit = int(limitArg)
-		}
+		limit := getInt(request.Params.Arguments, "limit", 20)
 
 		coreLogger.Debug("Executing diagnostics for file: %s", filePath)
-		client, err := s.router.ClientForFile(s.ctx, filePath)
+		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		text, err := tools.GetDiagnosticsForFile(s.ctx, client, filePath, contextLines, showLineNumbers, limit)
+		text, err := tools.GetDiagnosticsForFile(ctx, client, filePath, contextLines, showLineNumbers, limit)
 		if err != nil {
-			coreLogger.Error("Failed to get diagnostics: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
-	// Uncomment to add codelens tools
-	//
-	// getCodeLensTool := mcp.NewTool("get_codelens",
-	// 	mcp.WithDescription("Get code lens hints for a given file from the language server."),
-	// 	mcp.WithString("filePath",
-	// 		mcp.Required(),
-	// 		mcp.Description("The path to the file to get code lens information for"),
-	// 	),
-	// )
-	//
-	// s.mcpServer.AddTool(getCodeLensTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// 	// Extract arguments
-	// 	filePath, ok := request.Params.Arguments["filePath"].(string)
-	// 	if !ok {
-	// 		return mcp.NewToolResultError("filePath must be a string"), nil
-	// 	}
-	//
-	// 	coreLogger.Debug("Executing get_codelens for file: %s", filePath)
-	// 	text, err := tools.GetCodeLens(s.ctx, s.lspClient, filePath)
-	// 	if err != nil {
-	// 		coreLogger.Error("Failed to get code lens: %v", err)
-	// 		return mcp.NewToolResultError(fmt.Sprintf("failed to get code lens: %v", err)), nil
-	// 	}
-	// 	return mcp.NewToolResultText(text), nil
-	// })
-	//
-	// executeCodeLensTool := mcp.NewTool("execute_codelens",
-	// 	mcp.WithDescription("Execute a code lens command for a given file and lens index."),
-	// 	mcp.WithString("filePath",
-	// 		mcp.Required(),
-	// 		mcp.Description("The path to the file containing the code lens to execute"),
-	// 	),
-	// 	mcp.WithNumber("index",
-	// 		mcp.Required(),
-	// 		mcp.Description("The index of the code lens to execute (from get_codelens output), 1 indexed"),
-	// 	),
-	// )
-	//
-	// s.mcpServer.AddTool(executeCodeLensTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// 	// Extract arguments
-	// 	filePath, ok := request.Params.Arguments["filePath"].(string)
-	// 	if !ok {
-	// 		return mcp.NewToolResultError("filePath must be a string"), nil
-	// 	}
-	//
-	// 	// Handle both float64 and int for index due to JSON parsing
-	// 	var index int
-	// 	switch v := request.Params.Arguments["index"].(type) {
-	// 	case float64:
-	// 		index = int(v)
-	// 	case int:
-	// 		index = v
-	// 	default:
-	// 		return mcp.NewToolResultError("index must be a number"), nil
-	// 	}
-	//
-	// 	coreLogger.Debug("Executing execute_codelens for file: %s index: %d", filePath, index)
-	// 	text, err := tools.ExecuteCodeLens(s.ctx, s.lspClient, filePath, index)
-	// 	if err != nil {
-	// 		coreLogger.Error("Failed to execute code lens: %v", err)
-	// 		return mcp.NewToolResultError(fmt.Sprintf("failed to execute code lens: %v", err)), nil
-	// 	}
-	// 	return mcp.NewToolResultText(text), nil
-	// })
+	workspaceDiagnosticsTool := mcp.NewTool("workspace_diagnostics",
+		mcp.WithDescription("Get diagnostic information for all active files in the workspace."),
+	)
+
+	s.mcpServer.AddTool(workspaceDiagnosticsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		coreLogger.Debug("Executing workspace_diagnostics")
+		clients := s.router.ActiveClients()
+		if len(clients) == 0 {
+			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
+		}
+		text, err := tools.GetAllDiagnostics(ctx, clients)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get workspace diagnostics: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
 
 	hoverTool := mcp.NewTool("hover",
 		mcp.WithDescription("Get hover information (type, documentation) for a symbol at the specified position."),
@@ -311,40 +383,20 @@ func (s *mcpServer) registerTools() error {
 	)
 
 	s.mcpServer.AddTool(hoverTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
 		filePath, ok := request.Params.Arguments["filePath"].(string)
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
-
-		// Handle both float64 and int for line and column due to JSON parsing
-		var line, column int
-		switch v := request.Params.Arguments["line"].(type) {
-		case float64:
-			line = int(v)
-		case int:
-			line = v
-		default:
-			return mcp.NewToolResultError("line must be a number"), nil
-		}
-
-		switch v := request.Params.Arguments["column"].(type) {
-		case float64:
-			column = int(v)
-		case int:
-			column = v
-		default:
-			return mcp.NewToolResultError("column must be a number"), nil
-		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
 
 		coreLogger.Debug("Executing hover for file: %s line: %d column: %d", filePath, line, column)
-		client, err := s.router.ClientForFile(s.ctx, filePath)
+		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		text, err := tools.GetHoverInfo(s.ctx, client, filePath, line, column)
+		text, err := tools.GetHoverInfo(ctx, client, filePath, line, column)
 		if err != nil {
-			coreLogger.Error("Failed to get hover information: %v", err)
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get hover information: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
@@ -371,48 +423,87 @@ func (s *mcpServer) registerTools() error {
 	)
 
 	s.mcpServer.AddTool(renameSymbolTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		// Extract arguments
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		newName, ok := request.Params.Arguments["newName"].(string)
+		if !ok {
+			return mcp.NewToolResultError("newName must be a string"), nil
+		}
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+
+		coreLogger.Debug("Executing rename_symbol for file: %s line: %d column: %d newName: %s", filePath, line, column, newName)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.RenameSymbol(ctx, client, filePath, line, column, newName)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to rename symbol: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	documentSymbolsTool := mcp.NewTool("document_symbols",
+		mcp.WithDescription("List all symbols (functions, types, methods, constants, etc.) in a file with hierarchy. Useful for understanding file structure at a glance."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("Path to the file to list symbols for"),
+		),
+	)
+
+	s.mcpServer.AddTool(documentSymbolsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		filePath, ok := request.Params.Arguments["filePath"].(string)
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
 
-		newName, ok := request.Params.Arguments["newName"].(string)
-		if !ok {
-			return mcp.NewToolResultError("newName must be a string"), nil
-		}
-
-		// Handle both float64 and int for line and column due to JSON parsing
-		var line, column int
-		switch v := request.Params.Arguments["line"].(type) {
-		case float64:
-			line = int(v)
-		case int:
-			line = v
-		default:
-			return mcp.NewToolResultError("line must be a number"), nil
-		}
-
-		switch v := request.Params.Arguments["column"].(type) {
-		case float64:
-			column = int(v)
-		case int:
-			column = v
-		default:
-			return mcp.NewToolResultError("column must be a number"), nil
-		}
-
-		coreLogger.Debug("Executing rename_symbol for file: %s line: %d column: %d newName: %s", filePath, line, column, newName)
-		client, err := s.router.ClientForFile(s.ctx, filePath)
+		coreLogger.Debug("Executing document_symbols for file: %s", filePath)
+		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		text, err := tools.RenameSymbol(s.ctx, client, filePath, line, column, newName)
+		text, err := tools.GetDocumentSymbols(ctx, client, filePath)
 		if err != nil {
-			coreLogger.Error("Failed to rename symbol: %v", err)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to rename symbol: %v", err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get document symbols: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	workspaceSymbolsTool := mcp.NewTool("workspace_symbols",
+		mcp.WithDescription("Search for symbols across the entire project by name. Returns a concise listing of matching symbols with their locations, unlike 'definition' which returns full source code."),
+		mcp.WithString("query",
+			mcp.Required(),
+			mcp.Description("The symbol name or partial name to search for"),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of symbols to return. Default 20. Use -1 for all."),
+		),
+	)
+
+	s.mcpServer.AddTool(workspaceSymbolsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		query, ok := request.Params.Arguments["query"].(string)
+		if !ok {
+			return mcp.NewToolResultError("query must be a string"), nil
+		}
+		limit := getInt(request.Params.Arguments, "limit", 20)
+
+		coreLogger.Debug("Executing workspace_symbols for query: %s", query)
+		clients := s.router.ActiveClients()
+		if len(clients) == 0 {
+			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
+		}
+		var lastErr error
+		for _, client := range clients {
+			text, err := tools.SearchWorkspaceSymbols(ctx, client, query, limit)
+			if err == nil {
+				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+			}
+			lastErr = err
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to search workspace symbols: %v", lastErr)), nil
 	})
 
 	coreLogger.Info("Successfully registered all MCP tools")

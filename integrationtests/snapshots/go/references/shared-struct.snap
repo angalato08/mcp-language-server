@@ -28,7 +28,6 @@ At: L11:C8, L25:C3
 29|		SharedStruct: *s,
 30|	}
 
----
 
 /TEST_OUTPUT/workspace/consumer.go
 References in File: 1
@@ -46,7 +45,6 @@ At: L11:C8
 15|		Constants: []string{SharedConstant},
 16|	}
 
----
 
 /TEST_OUTPUT/workspace/types.go
 References in File: 3

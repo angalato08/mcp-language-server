@@ -9,4 +9,3 @@ Range: L17:C1 - L19:C2
 17|type TestInterface interface {
 18|	DoSomething() error
 19|}
-

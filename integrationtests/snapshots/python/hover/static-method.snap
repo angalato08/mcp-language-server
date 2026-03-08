@@ -1,5 +1,4 @@
 (method) def static_method(items: list[str]) -> Unknown
-
 Convert a list of items to a dictionary with item counts.
 
 Args:

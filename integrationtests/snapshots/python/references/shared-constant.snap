@@ -16,27 +16,26 @@ At: L4:C5, L16:C51, L34:C30
 ...
 11|class AnotherImplementation:
 12|    """A class that uses shared components but doesn't implement interfaces."""
-13|    
+13|
 14|    def __init__(self):
 15|        """Initialize the implementation."""
 16|        self.shared = SharedClass[str]("another", SHARED_CONSTANT)
-17|    
+17|
 18|    def do_something(self) -> str:
 19|        """Do something with the shared components.
-20|        
+20|
 21|        Returns:
 ...
 31|def another_consumer_function() -> None:
 32|    """Another function that uses various shared components."""
 33|    # Use shared constants
 34|    print(f"Using constant: {SHARED_CONSTANT}")
-35|    
+35|
 36|    # Use shared class with a different type parameter
 37|    shared = SharedClass[float]("another example", 3.14)
-38|    
+38|
 39|    # Use methods from shared class
 
----
 
 /TEST_OUTPUT/workspace/consumer.py
 References in File: 2

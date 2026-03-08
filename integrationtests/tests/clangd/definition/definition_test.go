@@ -15,7 +15,7 @@ import (
 // TestReadDefinition tests the ReadDefinition tool with various C++ type definitions
 func TestReadDefinition(t *testing.T) {
 	// Helper function to open all files and wait for indexing
-	openAllFilesAndWait := func(suite *common.TestSuite, ctx context.Context) {
+	openAllFilesAndWait := func(suite *common.TestSuite) {
 		// Open one file so that clangd loads compiles commands and begins indexing
 		filesToOpen := []string{
 			"src/main.cpp",
@@ -23,23 +23,21 @@ func TestReadDefinition(t *testing.T) {
 
 		for _, file := range filesToOpen {
 			filePath := filepath.Join(suite.WorkspaceDir, file)
-			err := suite.Client.OpenFile(ctx, filePath)
+			// Use suite.Context (which doesn't have the short timeout) for setup
+			err := suite.Client.OpenFile(suite.Context, filePath)
 			if err != nil {
 				// Don't fail the test, some files might not exist in certain tests
 				t.Logf("Note: Failed to open %s: %v", file, err)
 			}
 		}
 		// Wait for indexing to complete. clangd won't index files until they are opened.
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 
 	suite := internal.GetTestSuite(t)
 
-	ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
-	defer cancel()
-
 	// Open all files and wait for clangd to index them
-	openAllFilesAndWait(suite, ctx)
+	openAllFilesAndWait(suite)
 
 	tests := []struct {
 		name         string
@@ -93,6 +91,10 @@ func TestReadDefinition(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// Create a fresh timeout for EACH tool call
+			ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
+			defer cancel()
+
 			// Call the ReadDefinition tool
 			result, err := tools.ReadDefinition(ctx, suite.Client, tc.symbolName)
 			if err != nil {
@@ -112,7 +114,7 @@ func TestReadDefinition(t *testing.T) {
 
 func TestReadDefinitionInAnotherFile(t *testing.T) {
 	// Helper function to open all files and wait for indexing
-	openAllFilesAndWait := func(suite *common.TestSuite, ctx context.Context) {
+	openAllFilesAndWait := func(suite *common.TestSuite) {
 		// Open all files to ensure clangd indexes everything
 		filesToOpen := []string{
 			"src/main.cpp",
@@ -120,7 +122,7 @@ func TestReadDefinitionInAnotherFile(t *testing.T) {
 
 		for _, file := range filesToOpen {
 			filePath := filepath.Join(suite.WorkspaceDir, file)
-			err := suite.Client.OpenFile(ctx, filePath)
+			err := suite.Client.OpenFile(suite.Context, filePath)
 			if err != nil {
 				// Don't fail the test, some files might not exist in certain tests
 				t.Logf("Note: Failed to open %s: %v", file, err)
@@ -131,11 +133,8 @@ func TestReadDefinitionInAnotherFile(t *testing.T) {
 
 	suite := internal.GetTestSuite(t)
 
-	ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
-	defer cancel()
-
 	// Open all files and wait for clangd to index them
-	openAllFilesAndWait(suite, ctx)
+	openAllFilesAndWait(suite)
 
 	tests := []struct {
 		name         string
@@ -153,6 +152,10 @@ func TestReadDefinitionInAnotherFile(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// Create a fresh timeout for EACH tool call
+			ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
+			defer cancel()
+
 			// Call the ReadDefinition tool
 			result, err := tools.ReadDefinition(ctx, suite.Client, tc.symbolName)
 			if err != nil {
@@ -166,6 +169,59 @@ func TestReadDefinitionInAnotherFile(t *testing.T) {
 
 			// Use snapshot testing to verify exact output
 			common.SnapshotTest(t, "clangd", "definition", tc.snapshotName, result)
+		})
+	}
+}
+
+func TestGetDefinitionAtPosition(t *testing.T) {
+	suite := internal.GetTestSuite(t)
+
+	// Explicitly open files to trigger indexing
+	filesToOpen := []string{"src/main.cpp", "src/helper.cpp", "src/consumer.cpp"}
+	for _, f := range filesToOpen {
+		suite.Client.OpenFile(suite.Context, filepath.Join(suite.WorkspaceDir, f))
+	}
+
+	// Wait for indexing
+	time.Sleep(10 * time.Second)
+
+	tests := []struct {
+		name         string
+		filePath     string
+		line         int
+		column       int
+		expectedText string
+	}{
+		{
+			name:         "Call to foo_bar",
+			filePath:     "src/main.cpp",
+			line:         11,
+			column:       3,
+			expectedText: "void foo_bar()",
+		},
+		{
+			name:         "Call to helperFunction",
+			filePath:     "src/main.cpp",
+			line:         14,
+			column:       3,
+			expectedText: "void helperFunction()",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			absPath := filepath.Join(suite.WorkspaceDir, tc.filePath)
+			ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
+			defer cancel()
+
+			result, err := tools.ReadDefinitionAtPosition(ctx, suite.Client, absPath, tc.line, tc.column)
+			if err != nil {
+				t.Fatalf("Failed to get definition at position: %v", err)
+			}
+
+			if !strings.Contains(result, tc.expectedText) {
+				t.Errorf("Definition does not contain expected text: %s\nResult: %s", tc.expectedText, result)
+			}
 		})
 	}
 }

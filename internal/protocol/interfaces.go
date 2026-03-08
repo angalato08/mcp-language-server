@@ -115,3 +115,84 @@ func (e Or_TextDocumentEdit_edits_Elem) AsTextEdit() (TextEdit, error) {
 		return TextEdit{}, fmt.Errorf("unknown text edit type: %T", e.Value)
 	}
 }
+
+// Locations converts Or_Result_textDocument_definition to a slice of Location
+func (r Or_Result_textDocument_definition) Locations() ([]Location, error) {
+	if r.Value == nil {
+		return nil, nil
+	}
+	switch v := r.Value.(type) {
+	case Definition:
+		return v.Locations()
+	case []DefinitionLink:
+		results := make([]Location, len(v))
+		for i, link := range v {
+			results[i] = Location{
+				URI:   link.TargetURI,
+				Range: link.TargetRange,
+			}
+		}
+		return results, nil
+	default:
+		return nil, fmt.Errorf("unknown definition result type: %T", r.Value)
+	}
+}
+
+// Locations converts Or_Result_textDocument_typeDefinition to a slice of Location
+func (r Or_Result_textDocument_typeDefinition) Locations() ([]Location, error) {
+	if r.Value == nil {
+		return nil, nil
+	}
+	switch v := r.Value.(type) {
+	case Definition:
+		return v.Locations()
+	case []DefinitionLink:
+		results := make([]Location, len(v))
+		for i, link := range v {
+			results[i] = Location{
+				URI:   link.TargetURI,
+				Range: link.TargetRange,
+			}
+		}
+		return results, nil
+	default:
+		return nil, fmt.Errorf("unknown type definition result type: %T", r.Value)
+	}
+}
+
+// Locations converts Or_Result_textDocument_implementation to a slice of Location
+func (r Or_Result_textDocument_implementation) Locations() ([]Location, error) {
+	if r.Value == nil {
+		return nil, nil
+	}
+	switch v := r.Value.(type) {
+	case Definition:
+		return v.Locations()
+	case []DefinitionLink:
+		results := make([]Location, len(v))
+		for i, link := range v {
+			results[i] = Location{
+				URI:   link.TargetURI,
+				Range: link.TargetRange,
+			}
+		}
+		return results, nil
+	default:
+		return nil, fmt.Errorf("unknown implementation result type: %T", r.Value)
+	}
+}
+
+// Locations converts Or_Definition to a slice of Location
+func (r Or_Definition) Locations() ([]Location, error) {
+	if r.Value == nil {
+		return nil, nil
+	}
+	switch v := r.Value.(type) {
+	case Location:
+		return []Location{v}, nil
+	case []Location:
+		return v, nil
+	default:
+		return nil, fmt.Errorf("unknown definition type: %T", r.Value)
+	}
+}

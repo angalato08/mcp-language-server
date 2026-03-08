@@ -173,7 +173,27 @@ func (c *Client) InitializeLSPClient(ctx context.Context, workspaceDir string) (
 					CodeLens: &protocol.CodeLensClientCapabilities{
 						DynamicRegistration: true,
 					},
-					DocumentSymbol: protocol.DocumentSymbolClientCapabilities{},
+					DocumentSymbol: protocol.DocumentSymbolClientCapabilities{
+						HierarchicalDocumentSymbolSupport: true,
+					},
+					Hover: &protocol.HoverClientCapabilities{
+						ContentFormat: []protocol.MarkupKind{protocol.Markdown, protocol.PlainText},
+					},
+					Definition: &protocol.DefinitionClientCapabilities{
+						DynamicRegistration: true,
+						LinkSupport:         true,
+					},
+					TypeDefinition: &protocol.TypeDefinitionClientCapabilities{
+						DynamicRegistration: true,
+						LinkSupport:         true,
+					},
+					Implementation: &protocol.ImplementationClientCapabilities{
+						DynamicRegistration: true,
+						LinkSupport:         true,
+					},
+					References: &protocol.ReferenceClientCapabilities{
+						DynamicRegistration: true,
+					},
 					CodeAction: protocol.CodeActionClientCapabilities{
 						CodeActionLiteralSupport: protocol.ClientCodeActionLiteralOptions{
 							CodeActionKind: protocol.ClientCodeActionKindOptions{
@@ -453,10 +473,11 @@ func (c *Client) WaitForDiagnostics(uri protocol.DocumentUri, timeout time.Durat
 		ch = make(chan struct{}, 1)
 		c.diagnosticReady[uri] = ch
 	}
+	chOnce := ch
 	c.diagnosticReadyMu.Unlock()
 
 	select {
-	case <-ch:
+	case <-chOnce:
 	case <-time.After(timeout):
 	}
 }
@@ -478,11 +499,27 @@ func (c *Client) SignalDiagnostics(uri protocol.DocumentUri) {
 	}
 }
 
+// GetFileDiagnostics returns diagnostics for a single URI
 func (c *Client) GetFileDiagnostics(uri protocol.DocumentUri) []protocol.Diagnostic {
 	c.diagnosticsMu.RLock()
 	defer c.diagnosticsMu.RUnlock()
 
 	return c.diagnostics[uri]
+}
+
+// GetAllDiagnostics returns a copy of all current diagnostics
+func (c *Client) GetAllDiagnostics() map[protocol.DocumentUri][]protocol.Diagnostic {
+	c.diagnosticsMu.RLock()
+	defer c.diagnosticsMu.RUnlock()
+
+	// Return a copy to avoid concurrency issues
+	result := make(map[protocol.DocumentUri][]protocol.Diagnostic)
+	for k, v := range c.diagnostics {
+		if len(v) > 0 {
+			result[k] = v
+		}
+	}
+	return result
 }
 
 func ptrTo[T any](v T) *T {

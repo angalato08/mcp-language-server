@@ -7,4 +7,3 @@ Container Name: github.com/isaacphi/mcp-language-server/integrationtests/test-ou
 Range: L22:C1 - L22:C21
 
 22|type TestType string
-

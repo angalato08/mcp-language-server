@@ -18,7 +18,6 @@ At: L15:C23
 19|	if name := s.GetName(); name != "" {
 20|		fmt.Println("Got name:", name)
 
----
 
 /TEST_OUTPUT/workspace/consumer.go
 References in File: 1
