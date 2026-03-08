@@ -1,1 +1,7 @@
-TEST_VARIABLE not found
+---
+
+Symbol: TEST_VARIABLE
+File: src/helper.cpp
+Range: L5:C1 - L5:C24
+
+5|int TEST_VARIABLE = 100;  // A test variable used for integration testing purposes.

@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.py
+another_consumer.py
 References in File: 3
 At: L4:C5, L16:C51, L34:C30
 
@@ -37,7 +37,7 @@ At: L4:C5, L16:C51, L34:C30
 39|    # Use methods from shared class
 
 
-/TEST_OUTPUT/workspace/consumer.py
+consumer.py
 References in File: 2
 At: L8:C5, L46:C43
 

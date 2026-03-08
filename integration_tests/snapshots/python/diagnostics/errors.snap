@@ -1,4 +1,4 @@
-/TEST_OUTPUT/workspace/error_file.py
+error_file.py
 Diagnostics in File: 3
 ERROR at L31:C12: Expression of type "Literal[42]" cannot be assigned to return type "str"
   "Literal[42]" is incompatible with "str" (Source: Pyright, Code: reportGeneralTypeIssues)

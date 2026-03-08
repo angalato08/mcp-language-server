@@ -9,8 +9,6 @@ import (
 	"github.com/angalato08/mcp-language-server/internal/tools"
 )
 
-)
-
 // GetTestSuite returns a test suite for TypeScript language server tests
 func GetTestSuite(t *testing.T) *common.TestSuite {
 	// Configure TypeScript LSP
@@ -41,15 +39,8 @@ func GetTestSuite(t *testing.T) *common.TestSuite {
 		suite.Cleanup()
 	})
 
-	return suite
-	// Register cleanup
-	t.Cleanup(func() {
-		suite.Cleanup()
-	})
-
 	// Set workspace root for tools (important for relative paths in references)
 	tools.SetWorkspaceRoot(suite.WorkspaceDir)
 
 	return suite
 }
-

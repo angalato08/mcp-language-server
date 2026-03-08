@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.go
+another_consumer.go
 References in File: 1
 At: L15:C23
 
@@ -19,7 +19,7 @@ At: L15:C23
 20|		fmt.Println("Got name:", name)
 
 
-/TEST_OUTPUT/workspace/consumer.go
+consumer.go
 References in File: 1
 At: L15:C23
 

@@ -1,7 +1,7 @@
 ---
 
 Symbol: foo_bar
-/TEST_OUTPUT/workspace/src/main.rs
+File: src/main.rs
 Kind: Function
 Range: L8:C1 - L12:C2
 

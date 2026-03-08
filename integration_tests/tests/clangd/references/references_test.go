@@ -123,7 +123,7 @@ func TestGetReferencesAtPosition(t *testing.T) {
 		{
 			name:          "References of helperFunction",
 			filePath:      "src/main.cpp",
-			line:          14,
+			line:          11,
 			column:        3,
 			expectedText:  "helperFunction",
 			expectedFiles: 2,
@@ -131,7 +131,7 @@ func TestGetReferencesAtPosition(t *testing.T) {
 		{
 			name:          "References of foo_bar",
 			filePath:      "src/main.cpp",
-			line:          11,
+			line:          14,
 			column:        3,
 			expectedText:  "foo_bar",
 			expectedFiles: 1,

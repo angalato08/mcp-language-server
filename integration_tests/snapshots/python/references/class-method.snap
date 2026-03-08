@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.py
+another_consumer.py
 References in File: 1
 At: L40:C19
 
@@ -19,7 +19,7 @@ At: L40:C19
 45|    impl = AnotherImplementation()
 
 
-/TEST_OUTPUT/workspace/consumer.py
+consumer.py
 References in File: 1
 At: L47:C41
 

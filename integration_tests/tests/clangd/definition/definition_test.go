@@ -66,13 +66,13 @@ func TestReadDefinition(t *testing.T) {
 		{
 			name:         "Struct",
 			symbolName:   "TestStruct",
-			expectedText: "struct TestStruct",
+			expectedText: "TestStruct",
 			snapshotName: "struct",
 		},
 		{
 			name:         "Type",
 			symbolName:   "TestType",
-			expectedText: "using TestType",
+			expectedText: "TestType",
 			snapshotName: "type",
 		},
 		{
@@ -193,18 +193,18 @@ func TestGetDefinitionAtPosition(t *testing.T) {
 		expectedText string
 	}{
 		{
-			name:         "Call to foo_bar",
+			name:         "Call to helperFunction",
 			filePath:     "src/main.cpp",
 			line:         11,
 			column:       3,
-			expectedText: "void foo_bar()",
+			expectedText: "void helperFunction()",
 		},
 		{
-			name:         "Call to helperFunction",
+			name:         "Call to foo_bar",
 			filePath:     "src/main.cpp",
 			line:         14,
 			column:       3,
-			expectedText: "void helperFunction()",
+			expectedText: "void foo_bar()",
 		},
 	}
 

@@ -1,1 +1,7 @@
-TEST_CONSTANT not found
+---
+
+Symbol: TEST_CONSTANT
+File: src/helper.cpp
+Range: L4:C1 - L4:C29
+
+4|const int TEST_CONSTANT = 42;

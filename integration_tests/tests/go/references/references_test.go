@@ -121,12 +121,11 @@ func TestFindReferences(t *testing.T) {
 func countFilesInResult(result string) int {
 	fileMap := make(map[string]bool)
 
-	// Any line containing "workspace" and ".go" is a file path
+	// Any line ending with ".go" is a file path
 	for line := range strings.SplitSeq(result, "\n") {
-		if strings.Contains(line, "workspace") && strings.Contains(line, ".go") {
-			if !strings.Contains(line, "References in File") {
-				fileMap[line] = true
-			}
+		trimmed := strings.TrimSpace(line)
+		if strings.HasSuffix(trimmed, ".go") {
+			fileMap[trimmed] = true
 		}
 	}
 

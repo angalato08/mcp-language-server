@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.py
+another_consumer.py
 References in File: 2
 At: L7:C5, L54:C13
 
@@ -27,7 +27,7 @@ At: L7:C5, L54:C13
 55|    print(f"Selected color: {color}")
 
 
-/TEST_OUTPUT/workspace/consumer.py
+consumer.py
 References in File: 2
 At: L9:C5, L55:C13
 

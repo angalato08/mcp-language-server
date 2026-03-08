@@ -1,7 +1,7 @@
 ---
 
 Symbol: foo_bar
-/TEST_OUTPUT/workspace/src/main.cpp
+File: src/main.cpp
 Range: L5:C1 - L8:C2
 
 5|void foo_bar() {

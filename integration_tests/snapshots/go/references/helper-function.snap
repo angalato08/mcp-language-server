@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.go
+another_consumer.go
 References in File: 1
 At: L8:C34
 
@@ -14,7 +14,7 @@ At: L8:C34
 13|		Name:      "another test",
 
 
-/TEST_OUTPUT/workspace/consumer.go
+consumer.go
 References in File: 1
 At: L7:C13
 

@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.py
+another_consumer.py
 References in File: 3
 At: L6:C5, L28:C16, L50:C14
 
@@ -38,7 +38,7 @@ At: L6:C5, L28:C16, L50:C14
 55|    print(f"Selected color: {color}")
 
 
-/TEST_OUTPUT/workspace/consumer.py
+consumer.py
 References in File: 2
 At: L4:C5, L37:C15
 
@@ -63,7 +63,7 @@ At: L4:C5, L37:C15
 42|    for item in items:
 
 
-/TEST_OUTPUT/workspace/consumer_clean.py
+consumer_clean.py
 References in File: 2
 At: L3:C20, L9:C15
 

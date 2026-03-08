@@ -1,16 +1,18 @@
 ---
 
-/TEST_OUTPUT/workspace/include/helper.hpp
+include/helper.hpp
 References in File: 1
 At: L1:C6
 
 1|void helperFunction();
 
 
-/TEST_OUTPUT/workspace/src/consumer.cpp
+src/consumer.cpp
 References in File: 1
 At: L14:C28
 
+7|class TestClass {
+...
  9|  /**
 10|   * @brief A method that takes an integer parameter.
 11|   *
@@ -20,14 +22,14 @@ At: L14:C28
 15|};
 
 
-/TEST_OUTPUT/workspace/src/helper.cpp
+src/helper.cpp
 References in File: 1
 At: L7:C6
 
 7|void helperFunction() { std::cout << "Helper function" << std::endl; }
 
 
-/TEST_OUTPUT/workspace/src/main.cpp
+src/main.cpp
 References in File: 1
 At: L11:C3
 

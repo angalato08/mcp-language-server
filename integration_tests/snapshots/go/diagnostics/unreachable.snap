@@ -1,4 +1,4 @@
-/TEST_OUTPUT/workspace/main.go
+main.go
 Diagnostics in File: 1
 ERROR at L9:C9: cannot use 3 (untyped int constant) as string value in return statement (Source: compiler, Code: IncompatibleAssign)
 

@@ -142,14 +142,11 @@ func TestFindReferences(t *testing.T) {
 func countFilesInResult(result string) int {
 	fileMap := make(map[string]bool)
 
-	// Any line containing "workspace" and ".ts" is a file path
-	// but filter out lines that are just headers
+	// Any line ending with ".ts" is a file path
 	for line := range strings.SplitSeq(result, "\n") {
-		if strings.Contains(line, "workspace") && strings.Contains(line, ".ts") {
-			// Avoid counting section headers and focus on actual file paths
-			if !strings.Contains(line, "References in File") && !strings.Contains(line, "Symbol:") {
-				fileMap[line] = true
-			}
+		trimmed := strings.TrimSpace(line)
+		if strings.HasSuffix(trimmed, ".ts") {
+			fileMap[trimmed] = true
 		}
 	}
 

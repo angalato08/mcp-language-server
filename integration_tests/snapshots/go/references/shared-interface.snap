@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.go
+another_consumer.go
 References in File: 1
 At: L33:C12
 
@@ -19,7 +19,7 @@ At: L33:C12
 38|	for _, v := range values {
 
 
-/TEST_OUTPUT/workspace/consumer.go
+consumer.go
 References in File: 1
 At: L23:C12
 

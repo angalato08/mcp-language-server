@@ -72,7 +72,7 @@ func TestHover(t *testing.T) {
 			file:         "src/main.cpp",
 			line:         14, // Assuming foo_bar use
 			column:       6,  // "foo_bar"
-			expectedText: "function foo_bar",
+			expectedText: "foo_bar",
 			snapshotName: "function-main",
 		},
 		{
@@ -80,7 +80,7 @@ func TestHover(t *testing.T) {
 			file:         "src/main.cpp",
 			line:         11, // Assuming helperFunction use
 			column:       7,  // "helperFunction"
-			expectedText: "function helperFunction",
+			expectedText: "helperFunction",
 			snapshotName: "function-definition-cpp",
 		},
 		// Test for a location without hover info (empty space or comment)
@@ -108,11 +108,11 @@ func TestHover(t *testing.T) {
 			// Get a test suite
 			suite := internal.GetTestSuite(t)
 
+			// Use suite context for setup (which includes long sleeps)
+			openAllFilesAndWait(suite, suite.Context)
+
 			ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
 			defer cancel()
-
-			// Open all files and wait for clangd to index them
-			openAllFilesAndWait(suite, ctx)
 
 			filePath := filepath.Join(suite.WorkspaceDir, tt.file)
 

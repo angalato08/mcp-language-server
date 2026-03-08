@@ -1,7 +1,7 @@
 ---
 
 Symbol: FooBar
-/TEST_OUTPUT/workspace/main.go
+File: main.go
 Kind: Function
 Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
 Range: L6:C1 - L10:C2

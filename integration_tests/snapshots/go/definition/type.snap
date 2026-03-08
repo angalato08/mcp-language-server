@@ -1,7 +1,7 @@
 ---
 
 Symbol: TestType
-/TEST_OUTPUT/workspace/clean.go
+File: clean.go
 Kind: Class
 Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
 Range: L22:C1 - L22:C21

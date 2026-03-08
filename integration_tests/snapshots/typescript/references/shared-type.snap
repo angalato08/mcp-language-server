@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 2
 At: L6:C3, L26:C21
 
@@ -30,7 +30,7 @@ At: L6:C3, L26:C21
 31|  // Using SharedEnum
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 3
 At: L6:C3, L26:C16, L27:C19
 

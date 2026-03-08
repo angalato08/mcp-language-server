@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 1
 At: L21:C5
 
@@ -19,7 +19,7 @@ At: L21:C5
 26|  const mixedArray: SharedType[] = ["string", 42, "another"];
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 2
 At: L22:C21, L17:C24
 
@@ -41,7 +41,7 @@ At: L22:C21, L17:C24
 27|  const numValue: SharedType = 42;
 
 
-/TEST_OUTPUT/workspace/helper.ts
+helper.ts
 References in File: 1
 At: L22:C3
 
@@ -60,7 +60,7 @@ At: L22:C3
 27|    return 42;
 
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 1
 At: L21:C5
 
@@ -79,7 +79,7 @@ At: L21:C5
 26|  const mixedArray: SharedType[] = ["string", 42, "another"];
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 2
 At: L22:C21, L17:C24
 
@@ -101,7 +101,7 @@ At: L22:C21, L17:C24
 27|  const numValue: SharedType = 42;
 
 
-/TEST_OUTPUT/workspace/helper.ts
+helper.ts
 References in File: 1
 At: L10:C3
 

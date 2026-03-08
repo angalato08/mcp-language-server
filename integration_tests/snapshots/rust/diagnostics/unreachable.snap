@@ -1,4 +1,4 @@
-/TEST_OUTPUT/workspace/src/main.rs
+src/main.rs
 Diagnostics in File: 6
 ERROR at L10:C34: Syntax Error: expected SEMICOLON (Source: rust-analyzer, Code: syntax-error)
 ERROR at L10:C34: expected `;`, found `println` (Source: rustc)

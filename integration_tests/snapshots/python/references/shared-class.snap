@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.py
+another_consumer.py
 References in File: 3
 At: L5:C5, L16:C23, L37:C14
 
@@ -40,7 +40,7 @@ At: L5:C5, L16:C23, L37:C14
 42|    print(f"Name: {name}, Value: {value}")
 
 
-/TEST_OUTPUT/workspace/consumer.py
+consumer.py
 References in File: 2
 At: L6:C5, L46:C14
 

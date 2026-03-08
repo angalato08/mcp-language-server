@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 2
 At: L7:C3, L29:C30
 
@@ -29,7 +29,7 @@ At: L7:C3, L29:C30
 34|  console.log(instance, iface, mixedArray, prefixed, enumValues);
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 2
 At: L7:C3, L31:C15
 

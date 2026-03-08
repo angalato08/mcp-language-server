@@ -16,7 +16,7 @@ import (
 // that have references across different files
 func TestFindReferences(t *testing.T) {
 	// Helper function to open all files and wait for indexing
-	openAllFilesAndWait := func(suite *common.TestSuite, ctx context.Context) {
+	openAllFilesAndWait := func(suite *common.TestSuite) {
 		// Open all files to ensure rust-analyzer indexes everything
 		filesToOpen := []string{
 			"src/main.rs",
@@ -29,21 +29,23 @@ func TestFindReferences(t *testing.T) {
 
 		for _, file := range filesToOpen {
 			filePath := filepath.Join(suite.WorkspaceDir, file)
-			err := suite.Client.OpenFile(ctx, filePath)
+			err := suite.Client.OpenFile(suite.Context, filePath)
 			if err != nil {
 				// Don't fail the test, some files might not exist in certain tests
 				t.Logf("Note: Failed to open %s: %v", file, err)
 			}
 		}
+		// Wait for rust-analyzer to index
+		time.Sleep(5 * time.Second)
 	}
 
 	suite := internal.GetTestSuite(t)
 
+	// Open all files and wait for rust-analyzer to index them
+	openAllFilesAndWait(suite)
+
 	ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
 	defer cancel()
-
-	// Open all files and wait for rust-analyzer to index them
-	openAllFilesAndWait(suite, ctx)
 
 	tests := []struct {
 		name          string
@@ -140,10 +142,11 @@ func TestFindReferences(t *testing.T) {
 func countFilesInResult(result string) int {
 	fileMap := make(map[string]bool)
 
-	// Any line containing "workspace" and ".rs" is a file path
+	// Any line ending with ".rs" is a file path
 	for line := range strings.SplitSeq(result, "\n") {
-		if strings.Contains(line, "workspace") && strings.Contains(line, ".rs") {
-			fileMap[line] = true
+		trimmed := strings.TrimSpace(line)
+		if strings.HasSuffix(trimmed, ".rs") {
+			fileMap[trimmed] = true
 		}
 	}
 

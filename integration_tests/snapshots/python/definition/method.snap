@@ -1,7 +1,7 @@
 ---
 
 Symbol: test_method
-/TEST_OUTPUT/workspace/main.py
+File: main.py
 Kind: Method
 Container Name: TestClass
 Range: L18:C1 - L59:C22

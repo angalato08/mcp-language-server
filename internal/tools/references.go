@@ -35,23 +35,49 @@ func FindReferences(ctx context.Context, client *lsp.Client, symbolName string, 
 		// Get the location of the symbol
 		loc := symbol.GetLocation()
 
+		// File is likely to be opened already, but may not be.
+		err := client.OpenFile(ctx, loc.URI.Path())
+		if err != nil {
+			toolsLogger.Error("Error opening file: %v", err)
+			continue
+		}
+
+		// The workspace/symbol range start may point to the beginning of the
+		// declaration (e.g. "pub" in "pub fn helper_function"), not the symbol
+		// name itself. Find the actual name position within the declaration.
+		position := loc.Range.Start
+		filePath := strings.TrimPrefix(string(loc.URI), "file://")
+		content, readErr := os.ReadFile(filePath)
+		if readErr == nil {
+			lines := strings.Split(string(content), "\n")
+			startLine := int(loc.Range.Start.Line)
+			endLine := int(loc.Range.End.Line)
+			if endLine >= len(lines) {
+				endLine = len(lines) - 1
+			}
+			for lineNum := startLine; lineNum <= endLine; lineNum++ {
+				col := strings.Index(lines[lineNum], symbolName)
+				if col >= 0 {
+					position = protocol.Position{
+						Line:      uint32(lineNum),
+						Character: uint32(col),
+					}
+					break
+				}
+			}
+		}
+
 		// Use LSP references request with correct params structure
 		refsParams := protocol.ReferenceParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
 					URI: loc.URI,
 				},
-				Position: loc.Range.Start,
+				Position: position,
 			},
 			Context: protocol.ReferenceContext{
 				IncludeDeclaration: false,
 			},
-		}
-		// File is likely to be opened already, but may not be.
-		err := client.OpenFile(ctx, loc.URI.Path())
-		if err != nil {
-			toolsLogger.Error("Error opening file: %v", err)
-			continue
 		}
 		refs, err := client.References(ctx, refsParams)
 		if err != nil {

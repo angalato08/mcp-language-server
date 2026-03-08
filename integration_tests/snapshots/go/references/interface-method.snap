@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.go
+another_consumer.go
 References in File: 1
 At: L19:C15
 
@@ -19,7 +19,7 @@ At: L19:C15
 24|	type CustomImplementor struct {
 
 
-/TEST_OUTPUT/workspace/consumer.go
+consumer.go
 References in File: 1
 At: L24:C20
 

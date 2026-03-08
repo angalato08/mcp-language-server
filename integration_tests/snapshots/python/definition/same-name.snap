@@ -1,7 +1,7 @@
 ---
 
 Symbol: SameName
-/TEST_OUTPUT/workspace/clean.py
+File: clean.py
 Kind: Function
 Range: L6:C1 - L7:C9
 
@@ -10,7 +10,7 @@ Range: L6:C1 - L7:C9
 
 
 Symbol: SameName
-/TEST_OUTPUT/workspace/helper.py
+File: helper.py
 Kind: Class
 Range: L24:C1 - L25:C9
 

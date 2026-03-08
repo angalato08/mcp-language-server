@@ -54,17 +54,7 @@ func GetTestSuite(t *testing.T) *common.TestSuite {
 			t.Logf("Warning: Failed to write compile_commands.json: %v", err)
 		} else {
 			t.Logf("Generated compile_commands.json at %s", targetPath)
-			// Register cleanup
-			t.Cleanup(func() {
-				suite.Cleanup()
-			})
-
-			// Set workspace root for tools (important for relative paths in references)
-			tools.SetWorkspaceRoot(suite.WorkspaceDir)
-
-			return suite
 		}
-
 	}
 
 	// Wait a bit for clangd to see the new file and index
@@ -74,6 +64,9 @@ func GetTestSuite(t *testing.T) *common.TestSuite {
 	t.Cleanup(func() {
 		suite.Cleanup()
 	})
+
+	// Set workspace root for tools (important for relative paths in references)
+	tools.SetWorkspaceRoot(suite.WorkspaceDir)
 
 	return suite
 }

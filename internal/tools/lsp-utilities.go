@@ -70,6 +70,15 @@ func matchSymbol(symbol protocol.WorkspaceSymbolResult, query string) bool {
 
 // Gets the full code block surrounding the start of the input location
 func GetFullDefinition(ctx context.Context, client *lsp.Client, startLocation protocol.Location) (string, protocol.Location, error) {
+	// Ensure the file is opened so the LSP server can provide document symbols
+	filePath, err := url.PathUnescape(strings.TrimPrefix(string(startLocation.URI), "file://"))
+	if err != nil {
+		return "", protocol.Location{}, fmt.Errorf("failed to unescape URI: %w", err)
+	}
+	if err := client.OpenFile(ctx, filePath); err != nil {
+		return "", protocol.Location{}, fmt.Errorf("failed to open file: %w", err)
+	}
+
 	symParams := protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{
 			URI: startLocation.URI,

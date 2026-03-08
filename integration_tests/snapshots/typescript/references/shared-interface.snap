@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 2
 At: L4:C3, L20:C16
 
@@ -29,7 +29,7 @@ At: L4:C3, L20:C16
 25|  // Using SharedType
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 2
 At: L4:C3, L21:C16
 
@@ -58,7 +58,7 @@ At: L4:C3, L21:C16
 26|  const value: SharedType = "string value";
 
 
-/TEST_OUTPUT/workspace/helper.ts
+helper.ts
 References in File: 1
 At: L15:C37
 

@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 2
 At: L5:C3, L17:C24
 
@@ -28,7 +28,7 @@ At: L5:C3, L17:C24
 22|    getValue: () => 100
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 2
 At: L5:C3, L16:C24
 

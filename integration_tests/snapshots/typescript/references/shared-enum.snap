@@ -1,6 +1,6 @@
 ---
 
-/TEST_OUTPUT/workspace/another_consumer.ts
+another_consumer.ts
 References in File: 4
 At: L8:C3, L32:C23, L32:C39, L32:C55
 
@@ -27,7 +27,7 @@ At: L8:C3, L32:C23, L32:C39, L32:C55
 35|}
 
 
-/TEST_OUTPUT/workspace/consumer.ts
+consumer.ts
 References in File: 2
 At: L8:C3, L34:C15
 
