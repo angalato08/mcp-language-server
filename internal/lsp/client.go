@@ -41,6 +41,10 @@ type Client struct {
 	diagnostics   map[protocol.DocumentUri][]protocol.Diagnostic
 	diagnosticsMu sync.RWMutex
 
+	// Signals when diagnostics are updated for a URI
+	diagnosticReady   map[protocol.DocumentUri]chan struct{}
+	diagnosticReadyMu sync.Mutex
+
 	// Files are currently opened by the LSP
 	openFiles   map[string]*OpenFileInfo
 	openFilesMu sync.RWMutex
@@ -75,6 +79,7 @@ func NewClient(command string, args ...string) (*Client, error) {
 		notificationHandlers:  make(map[string]NotificationHandler),
 		serverRequestHandlers: make(map[string]ServerRequestHandler),
 		diagnostics:           make(map[protocol.DocumentUri][]protocol.Diagnostic),
+		diagnosticReady:       make(map[protocol.DocumentUri]chan struct{}),
 		openFiles:             make(map[string]*OpenFileInfo),
 	}
 
@@ -141,6 +146,15 @@ func (c *Client) InitializeLSPClient(ctx context.Context, workspaceDir string) (
 					DidChangeWatchedFiles: protocol.DidChangeWatchedFilesClientCapabilities{
 						DynamicRegistration:    true,
 						RelativePatternSupport: true,
+					},
+					WorkspaceEdit: &protocol.WorkspaceEditClientCapabilities{
+						DocumentChanges: true,
+						ResourceOperations: []protocol.ResourceOperationKind{
+							protocol.Create,
+							protocol.Rename,
+							protocol.Delete,
+						},
+						FailureHandling: ptrTo(protocol.Abort),
 					},
 				},
 				TextDocument: protocol.TextDocumentClientCapabilities{
@@ -425,9 +439,47 @@ func (c *Client) CloseAllFiles(ctx context.Context) {
 	lspLogger.Debug("Closed %d files", len(filesToClose))
 }
 
+// WaitForDiagnostics waits for a publishDiagnostics notification for the given URI,
+// or returns after timeout.
+func (c *Client) WaitForDiagnostics(uri protocol.DocumentUri, timeout time.Duration) {
+	c.diagnosticReadyMu.Lock()
+	ch, exists := c.diagnosticReady[uri]
+	if !exists {
+		ch = make(chan struct{}, 1)
+		c.diagnosticReady[uri] = ch
+	}
+	c.diagnosticReadyMu.Unlock()
+
+	select {
+	case <-ch:
+	case <-time.After(timeout):
+	}
+}
+
+// SignalDiagnostics signals that diagnostics have been received for a URI.
+func (c *Client) SignalDiagnostics(uri protocol.DocumentUri) {
+	c.diagnosticReadyMu.Lock()
+	defer c.diagnosticReadyMu.Unlock()
+
+	ch, exists := c.diagnosticReady[uri]
+	if !exists {
+		ch = make(chan struct{}, 1)
+		c.diagnosticReady[uri] = ch
+	}
+	// Non-blocking send
+	select {
+	case ch <- struct{}{}:
+	default:
+	}
+}
+
 func (c *Client) GetFileDiagnostics(uri protocol.DocumentUri) []protocol.Diagnostic {
 	c.diagnosticsMu.RLock()
 	defer c.diagnosticsMu.RUnlock()
 
 	return c.diagnostics[uri]
+}
+
+func ptrTo[T any](v T) *T {
+	return &v
 }

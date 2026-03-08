@@ -124,5 +124,8 @@ func HandleDiagnostics(client *Client, params json.RawMessage) {
 	client.diagnostics[diagParams.URI] = diagParams.Diagnostics
 	client.diagnosticsMu.Unlock()
 
+	// Signal that diagnostics are ready for this URI
+	client.SignalDiagnostics(diagParams.URI)
+
 	lspLogger.Info("Received diagnostics for %s: %d items", diagParams.URI, len(diagParams.Diagnostics))
 }

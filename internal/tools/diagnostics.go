@@ -26,12 +26,9 @@ func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath str
 		return "", fmt.Errorf("could not open file: %v", err)
 	}
 
-	// Wait for diagnostics
-	// TODO: wait for notification
-	time.Sleep(time.Second * 3)
-
-	// Convert the file path to URI format
+	// Wait for diagnostics notification from the LSP server (with timeout)
 	uri := protocol.DocumentUri("file://" + filePath)
+	client.WaitForDiagnostics(uri, 3*time.Second)
 
 	// Request fresh diagnostics
 	diagParams := protocol.DocumentDiagnosticParams{

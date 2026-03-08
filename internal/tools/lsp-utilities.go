@@ -11,6 +11,63 @@ import (
 	"github.com/isaacphi/mcp-language-server/internal/protocol"
 )
 
+// matchSymbol checks if a symbol matches the given query name.
+// It handles qualified names (Type.Method, Type::Method), container matching,
+// and method name matching for various languages.
+func matchSymbol(symbol protocol.WorkspaceSymbolResult, query string) bool {
+	name := symbol.GetName()
+
+	// Exact match is always accepted
+	if name == query {
+		return true
+	}
+
+	// For SymbolInformation, we have richer matching options
+	si, ok := symbol.(*protocol.SymbolInformation)
+	if !ok {
+		return false
+	}
+
+	if strings.Contains(query, ".") {
+		// Qualified name like "Type.Method"
+		parts := strings.SplitN(query, ".", 2)
+		if len(parts) == 2 {
+			// Match: symbol name is the method and container is the type
+			if si.Name == parts[1] && si.ContainerName == parts[0] {
+				return true
+			}
+			// Match: symbol name is already qualified as "Type.Method"
+			fullDot := si.ContainerName + "." + si.Name
+			if fullDot == query {
+				return true
+			}
+		}
+	}
+
+	if strings.Contains(query, "::") {
+		// C++ qualified name like "Namespace::Class::Method"
+		parts := strings.SplitN(query, "::", 2)
+		if len(parts) == 2 {
+			if si.Name == parts[1] && strings.HasSuffix(si.ContainerName, parts[0]) {
+				return true
+			}
+			fullCpp := si.ContainerName + "::" + si.Name
+			if fullCpp == query {
+				return true
+			}
+		}
+	}
+
+	// For methods, match if the symbol name ends with the separator + query
+	if si.Kind == protocol.Method {
+		if strings.HasSuffix(name, "::"+query) || strings.HasSuffix(name, "."+query) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Gets the full code block surrounding the start of the input location
 func GetFullDefinition(ctx context.Context, client *lsp.Client, startLocation protocol.Location) (string, protocol.Location, error) {
 	symParams := protocol.DocumentSymbolParams{

@@ -29,35 +29,14 @@ func ReadDefinition(ctx context.Context, client *lsp.Client, symbolName string) 
 
 		// Skip symbols that we are not looking for. workspace/symbol may return
 		// a large number of fuzzy matches.
-		switch v := symbol.(type) {
-		case *protocol.SymbolInformation:
-			// SymbolInformation results have richer data.
+		if !matchSymbol(symbol, symbolName) {
+			continue
+		}
+
+		if v, ok := symbol.(*protocol.SymbolInformation); ok {
 			kind = fmt.Sprintf("Kind: %s\n", protocol.TableKindMap[v.Kind])
 			if v.ContainerName != "" {
 				container = fmt.Sprintf("Container Name: %s\n", v.ContainerName)
-			}
-
-			// Handle different matching strategies based on the search term
-			if strings.Contains(symbolName, ".") {
-				// For qualified names like "Type.Method", require exact match
-				if symbol.GetName() != symbolName {
-					continue
-				}
-			} else {
-				// For unqualified names like "Method"
-				if v.Kind == protocol.Method {
-					// For methods, only match if the method name matches exactly Type.symbolName or Type::symbolName or symbolName
-					if !strings.HasSuffix(symbol.GetName(), "::"+symbolName) && !strings.HasSuffix(symbol.GetName(), "."+symbolName) && symbol.GetName() != symbolName {
-						continue
-					}
-				} else if symbol.GetName() != symbolName {
-					// For non-methods, exact match only
-					continue
-				}
-			}
-		default:
-			if symbol.GetName() != symbolName {
-				continue
 			}
 		}
 

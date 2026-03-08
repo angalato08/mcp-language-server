@@ -111,46 +111,11 @@ func (w *WorkspaceWatcher) AddRegistrations(ctx context.Context, id string, watc
 		}
 	}
 
-	// Find and open all existing files that match the newly registered patterns
-	// TODO: not all language servers require this, but typescript does. Make this configurable
-	go func() {
-		startTime := time.Now()
-		filesOpened := 0
-
-		err := filepath.WalkDir(w.workspacePath, func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-
-			// Skip directories that should be excluded
-			if d.IsDir() {
-				watcherLogger.Debug("Processing directory: %s", path)
-				if path != w.workspacePath && w.shouldExcludeDir(path) {
-					watcherLogger.Debug("Skipping excluded directory: %s", path)
-					return filepath.SkipDir
-				}
-			} else {
-				// Process files
-				w.openMatchingFile(ctx, path)
-				filesOpened++
-
-				// Add a small delay after every 100 files to prevent overwhelming the server
-				if filesOpened%100 == 0 {
-					time.Sleep(10 * time.Millisecond)
-				}
-			}
-
-			return nil
-		})
-
-		elapsedTime := time.Since(startTime)
-		watcherLogger.Info("Workspace scan complete: processed %d files in %.2f seconds",
-			filesOpened, elapsedTime.Seconds())
-
-		if err != nil {
-			watcherLogger.Error("Error scanning workspace for files to open: %v", err)
-		}
-	}()
+	// Note: We do NOT eagerly open all matching files here. Doing so causes
+	// FD exhaustion on large workspaces. Files are opened lazily when tools
+	// query them via client.OpenFile(). The watcher handles didChange for
+	// files that are already open.
+	watcherLogger.Info("Registered %d file watchers; files will be opened lazily on query", len(watchers))
 }
 
 // WatchWorkspace sets up file watching for a workspace
@@ -253,10 +218,9 @@ func (w *WorkspaceWatcher) WatchWorkspace(ctx context.Context, workspacePath str
 							}
 						}
 					} else {
-						// For newly created files
-						if !w.shouldExcludeFile(event.Name) {
-							w.openMatchingFile(ctx, event.Name)
-						}
+						// For newly created files, do NOT eagerly open them.
+						// They will be opened lazily when a tool queries them.
+						watcherLogger.Debug("New file created: %s (will open lazily)", event.Name)
 					}
 				}
 			}
@@ -628,24 +592,3 @@ func (w *WorkspaceWatcher) shouldExcludeFile(filePath string) bool {
 	return false
 }
 
-// openMatchingFile opens a file if it matches any of the registered patterns
-func (w *WorkspaceWatcher) openMatchingFile(ctx context.Context, path string) {
-	// Skip directories
-	info, err := os.Stat(path)
-	if err != nil || info.IsDir() {
-		return
-	}
-
-	// Skip excluded files
-	if w.shouldExcludeFile(path) {
-		return
-	}
-
-	// Check if this path should be watched according to server registrations
-	if watched, _ := w.isPathWatched(path); watched {
-		// Don't need to check if it's already open - the client.OpenFile handles that
-		if err := w.client.OpenFile(ctx, path); err != nil && watcherLogger.IsLevelEnabled(logging.LevelDebug) {
-			watcherLogger.Debug("Error opening file %s: %v", path, err)
-		}
-	}
-}
