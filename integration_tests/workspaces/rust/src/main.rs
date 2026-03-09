@@ -4,6 +4,8 @@ mod helper;
 mod consumer;
 mod another_consumer;
 mod clean;
+mod callchain;
+mod unformatted;
 
 // FooBar is a simple function for testing
 fn foo_bar() -> String {

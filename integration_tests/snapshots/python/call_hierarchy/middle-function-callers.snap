@@ -1,0 +1,11 @@
+Incoming calls to: middle_function (Function)
+
+1. entry_point (Function)
+   File: callchain.py
+   Range: L15:C5 - L15:C16
+   Call sites: 1 [L17:C11]
+
+2. another_caller (Function)
+   File: callchain.py
+   Range: L21:C5 - L21:C19
+   Call sites: 1 [L23:C11]

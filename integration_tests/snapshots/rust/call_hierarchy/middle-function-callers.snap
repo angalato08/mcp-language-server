@@ -1,0 +1,13 @@
+Incoming calls to: middle_function (Function)
+
+1. entry_point (Function)
+   Detail: pub fn entry_point()
+   File: src/callchain.rs
+   Range: L12:C1 - L15:C2
+   Call sites: 1 [L13:C15]
+
+2. another_caller (Function)
+   Detail: pub fn another_caller()
+   File: src/callchain.rs
+   Range: L17:C1 - L19:C2
+   Call sites: 1 [L18:C20]

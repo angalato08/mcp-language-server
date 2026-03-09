@@ -1,0 +1,6 @@
+Outgoing calls from: middle_function (Function)
+
+1. leaf_function (Function)
+   File: callchain.py
+   Range: L4:C5 - L4:C18
+   Call sites: 1 [L11:C14]

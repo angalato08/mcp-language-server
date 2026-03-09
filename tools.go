@@ -59,6 +59,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 
 		editsArg, ok := request.Params.Arguments["edits"]
 		if !ok {
@@ -181,6 +182,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 
@@ -217,6 +219,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 
@@ -290,6 +293,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 		limit := getInt(request.Params.Arguments, "limit", 30)
@@ -330,6 +334,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		contextLines := getInt(request.Params.Arguments, "contextLines", 5)
 		showLineNumbers := true
 		if v, ok := request.Params.Arguments["showLineNumbers"].(bool); ok {
@@ -387,6 +392,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 
@@ -427,6 +433,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		newName, ok := request.Params.Arguments["newName"].(string)
 		if !ok {
 			return mcp.NewToolResultError("newName must be a string"), nil
@@ -459,6 +466,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 
 		coreLogger.Debug("Executing document_symbols for file: %s", filePath)
 		client, err := s.router.ClientForFile(ctx, filePath)
@@ -525,6 +533,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		tabSize := getInt(request.Params.Arguments, "tabSize", 4)
 		insertSpaces := true
 		if v, ok := request.Params.Arguments["insertSpaces"].(bool); ok {
@@ -594,6 +603,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 
@@ -640,6 +650,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 
@@ -676,6 +687,7 @@ func (s *mcpServer) registerTools() error {
 		if !ok {
 			return mcp.NewToolResultError("filePath must be a string"), nil
 		}
+		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 
@@ -687,6 +699,54 @@ func (s *mcpServer) registerTools() error {
 		text, err := tools.GetOutgoingCalls(ctx, client, filePath, line, column)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get outgoing calls: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	dependencyGraphTool := mcp.NewTool("dependency_graph",
+		mcp.WithDescription("Generate a Mermaid dependency graph starting from a function or method. Uses the LSP call hierarchy to walk callers and/or callees recursively and returns a Mermaid diagram."),
+		mcp.WithString("filePath",
+			mcp.Required(),
+			mcp.Description("The path to the file containing the function/method"),
+		),
+		mcp.WithNumber("line",
+			mcp.Required(),
+			mcp.Description("The line number (1-indexed)"),
+		),
+		mcp.WithNumber("column",
+			mcp.Required(),
+			mcp.Description("The column number (1-indexed)"),
+		),
+		mcp.WithNumber("depth",
+			mcp.Description("How many levels deep to recurse. Default 3."),
+		),
+		mcp.WithString("direction",
+			mcp.Description("Direction to traverse: \"outgoing\" (callees), \"incoming\" (callers), or \"both\". Default \"outgoing\"."),
+		),
+	)
+
+	s.mcpServer.AddTool(dependencyGraphTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		filePath = tools.ResolveFilePath(filePath)
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+		depth := getInt(request.Params.Arguments, "depth", 3)
+		direction := "outgoing"
+		if v, ok := request.Params.Arguments["direction"].(string); ok && v != "" {
+			direction = v
+		}
+
+		coreLogger.Debug("Executing dependency_graph for file: %s line: %d column: %d depth: %d direction: %s", filePath, line, column, depth, direction)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		text, err := tools.GenerateCallGraph(ctx, client, filePath, line, column, depth, direction)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to generate dependency graph: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})

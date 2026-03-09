@@ -1,0 +1,7 @@
+Outgoing calls from: middle_function (Function)
+
+1. leaf_function (Function)
+   Detail: pub fn leaf_function() -> String
+   File: src/callchain.rs
+   Range: L3:C1 - L5:C2
+   Call sites: 1 [L8:C18]

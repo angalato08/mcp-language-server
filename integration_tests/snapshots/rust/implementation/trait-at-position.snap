@@ -1,0 +1,10 @@
+---
+
+File: src/types.rs
+Range: L70:C1 - L74:C2
+
+70|impl SharedInterface for SharedStruct {
+71|    fn get_name(&self) -> String {
+72|        self.name.clone()
+73|    }
+74|}

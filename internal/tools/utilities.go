@@ -18,6 +18,18 @@ func SetWorkspaceRoot(root string) {
 	workspaceRoot = root
 }
 
+// ResolveFilePath resolves a potentially relative file path to an absolute path
+// using the workspace root. If the path is already absolute, it is returned as-is.
+func ResolveFilePath(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	if workspaceRoot == "" {
+		return path
+	}
+	return filepath.Join(workspaceRoot, path)
+}
+
 // RelativePath converts an absolute file path to a workspace-relative path.
 // If the path cannot be made relative, it is returned as-is.
 func RelativePath(absPath string) string {

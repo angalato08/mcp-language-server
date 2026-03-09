@@ -1,0 +1,9 @@
+lsp_roundtrip_test.ts
+Diagnostics in File: 3
+ERROR at L4:C3: Type 'string' is not assignable to type 'number'. (Source: typescript, Code: 2322)
+HINT at L3:C20: 'x' is declared but its value is never read. (Source: typescript, Code: 6133)
+HINT at L3:C31: 'y' is declared but its value is never read. (Source: typescript, Code: 6133)
+
+3|function calculate(x: number, y: number): number {
+4|  return "not a number";
+5|}

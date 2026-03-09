@@ -1,0 +1,12 @@
+lsp_roundtrip_test.go
+Diagnostics in File: 2
+ERROR at L3:C8: "fmt" imported and not used (Source: compiler, Code: UnusedImport)
+ERROR at L6:C9: cannot use 42 (untyped int constant) as string value in return statement (Source: compiler, Code: IncompatibleAssign)
+
+1|package main
+2|
+3|import "fmt"
+4|
+5|func RoundTripFunc() string {
+6|	return 42
+7|}

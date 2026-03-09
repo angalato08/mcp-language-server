@@ -1,0 +1,13 @@
+// Intentionally badly formatted file for testing formatting
+export function badlyFormatted(  )  {
+console.log(  "hello"  )
+  if(true){
+console.log("world")
+}
+}
+
+export function    anotherBad(   x:number,y:   string   ):    void{
+console.log(x,   y)
+  const   z   =   x   +   1
+console.log(  z  )
+}

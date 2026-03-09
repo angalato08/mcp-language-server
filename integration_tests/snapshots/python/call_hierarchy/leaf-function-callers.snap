@@ -1,0 +1,6 @@
+Incoming calls to: leaf_function (Function)
+
+1. middle_function (Function)
+   File: callchain.py
+   Range: L9:C5 - L9:C20
+   Call sites: 1 [L11:C14]

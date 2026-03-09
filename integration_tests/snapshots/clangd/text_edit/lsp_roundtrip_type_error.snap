@@ -1,0 +1,7 @@
+src/lsp_roundtrip_test.cpp
+Diagnostics in File: 1
+ERROR at L4:C12: Cannot initialize return object of type 'int' with an lvalue of type 'const char [13]' (Source: clang, Code: init_conversion_failed)
+
+3|int calculate(int x, int y) {
+4|    return "not a number";
+5|}

@@ -1,0 +1,7 @@
+Incoming calls to: leaf_function (Function)
+
+1. middle_function (Function)
+   Detail: pub fn middle_function() -> String
+   File: src/callchain.rs
+   Range: L7:C1 - L10:C2
+   Call sites: 1 [L8:C18]

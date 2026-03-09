@@ -402,6 +402,17 @@ func (c *Client) NotifyChange(ctx context.Context, filepath string) error {
 		},
 	}
 
+	// Reset the signal channel BEFORE sending didChange so that the next
+	// WaitForDiagnostics blocks until the LSP sends fresh publishDiagnostics.
+	// We intentionally do NOT clear the diagnostics cache here because the
+	// file watcher may trigger a second NotifyChange for the same edit, and
+	// clearing the cache would discard diagnostics that clangd already sent
+	// in response to the first didChange.
+	docURI := protocol.DocumentUri(uri)
+	c.diagnosticReadyMu.Lock()
+	c.diagnosticReady[docURI] = make(chan struct{}, 1)
+	c.diagnosticReadyMu.Unlock()
+
 	return c.Notify(ctx, "textDocument/didChange", params)
 }
 

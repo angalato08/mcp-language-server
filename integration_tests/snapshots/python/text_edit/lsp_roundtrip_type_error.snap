@@ -1,0 +1,8 @@
+lsp_roundtrip_test.py
+Diagnostics in File: 1
+ERROR at L6:C12: Expression of type "Literal['not a number']" cannot be assigned to return type "int"
+  "Literal['not a number']" is incompatible with "int" (Source: Pyright, Code: reportGeneralTypeIssues)
+
+4|def calculate(x: int, y: int) -> int:
+5|    """Calculate sum of two integers."""
+6|    return "not a number"

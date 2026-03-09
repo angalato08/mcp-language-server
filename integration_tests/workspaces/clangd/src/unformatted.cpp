@@ -1,0 +1,13 @@
+#include <iostream>
+void badly_formatted()  {
+std::cout<<"hello"<<std::endl;
+  if(true){
+std::cout<<"world"<<std::endl;
+}
+}
+
+void    another_bad(   int x,   int    y  )    {
+std::cout<<x<<y<<std::endl;
+  int   z   =   x   +   1;
+std::cout<<  z  <<std::endl;
+}

@@ -20,9 +20,9 @@ func DetectLanguageID(uri string) protocol.LanguageKind {
 		return protocol.LangClojure
 	case ".coffee":
 		return protocol.LangCoffeescript
-	case ".c":
+	case ".c", ".h":
 		return protocol.LangC
-	case ".cpp", ".cxx", ".cc", ".c++":
+	case ".cpp", ".cxx", ".cc", ".c++", ".hpp", ".hxx", ".h++":
 		return protocol.LangCPP
 	case ".cs":
 		return protocol.LangCSharp

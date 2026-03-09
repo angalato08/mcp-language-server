@@ -1,0 +1,6 @@
+Incoming calls to: middleFunction (Function)
+
+1. anotherCaller (Function)
+   File: src/callchain.cpp
+   Range: L18:C6 - L18:C19
+   Call sites: 1 [L19:C18]
