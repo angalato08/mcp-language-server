@@ -4,3 +4,8 @@ Incoming calls to: middleFunction (Function)
    File: src/callchain.cpp
    Range: L18:C6 - L18:C19
    Call sites: 1 [L19:C18]
+
+2. entryPoint (Function)
+   File: src/callchain.cpp
+   Range: L13:C6 - L13:C16
+   Call sites: 1 [L14:C23]

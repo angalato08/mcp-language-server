@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/angalato08/mcp-language-server/internal/protocol"
 	"github.com/angalato08/mcp-language-server/internal/utilities"
@@ -88,6 +89,112 @@ func workspaceEditFailure(err error) string {
 	return err.Error()
 }
 
+// HandleWorkDoneProgressCreate handles the window/workDoneProgress/create request
+// from the server, which asks us to create a progress token so the server can
+// report progress via $/progress notifications.
+func HandleWorkDoneProgressCreate(client *Client, params json.RawMessage) (any, error) {
+	var createParams protocol.WorkDoneProgressCreateParams
+	if err := json.Unmarshal(params, &createParams); err != nil {
+		lspLogger.Error("Error unmarshaling workDoneProgress/create params: %v", err)
+		return nil, err
+	}
+
+	token := progressTokenToString(createParams.Token)
+	lspLogger.Debug("Progress token created: %s", token)
+
+	client.progressMu.Lock()
+	client.activeProgress[token] = &ProgressInfo{Token: token, Done: true}
+	client.progressMu.Unlock()
+
+	return nil, nil
+}
+
+// HandleProgress processes $/progress notifications which report
+// begin/report/end for work-done progress (e.g. indexing).
+func HandleProgress(client *Client, params json.RawMessage) {
+	// $/progress has { token, value } where value is Begin/Report/End
+	var raw struct {
+		Token json.RawMessage `json:"token"`
+		Value json.RawMessage `json:"value"`
+	}
+	if err := json.Unmarshal(params, &raw); err != nil {
+		lspLogger.Error("Error unmarshaling $/progress params: %v", err)
+		return
+	}
+
+	// Parse the token (can be string or number)
+	var token string
+	var strToken string
+	if err := json.Unmarshal(raw.Token, &strToken); err == nil {
+		token = strToken
+	} else {
+		// Try number
+		var numToken float64
+		if err := json.Unmarshal(raw.Token, &numToken); err == nil {
+			token = fmt.Sprintf("%v", numToken)
+		} else {
+			token = string(raw.Token)
+		}
+	}
+
+	// Determine kind
+	var kind struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(raw.Value, &kind); err != nil {
+		lspLogger.Error("Error parsing progress kind: %v", err)
+		return
+	}
+
+	client.progressMu.Lock()
+	defer client.progressMu.Unlock()
+
+	info, exists := client.activeProgress[token]
+	if !exists {
+		// Token wasn't created via workDoneProgress/create — create it now
+		// (some servers send $/progress without the create request)
+		info = &ProgressInfo{Token: token, Done: true}
+		client.activeProgress[token] = info
+	}
+
+	switch kind.Kind {
+	case "begin":
+		var begin protocol.WorkDoneProgressBegin
+		if err := json.Unmarshal(raw.Value, &begin); err == nil {
+			info.Title = begin.Title
+			info.Message = begin.Message
+			info.Percentage = begin.Percentage
+			info.Done = false
+			lspLogger.Info("Progress begin [%s]: %s — %s", token, begin.Title, begin.Message)
+		}
+	case "report":
+		var report protocol.WorkDoneProgressReport
+		if err := json.Unmarshal(raw.Value, &report); err == nil {
+			info.Message = report.Message
+			info.Percentage = report.Percentage
+			lspLogger.Debug("Progress report [%s]: %s (%d%%)", token, report.Message, report.Percentage)
+		}
+	case "end":
+		var end protocol.WorkDoneProgressEnd
+		if err := json.Unmarshal(raw.Value, &end); err == nil {
+			info.Done = true
+			info.Message = end.Message
+			lspLogger.Info("Progress end [%s]: %s", token, end.Message)
+		}
+	}
+}
+
+// progressTokenToString converts a ProgressToken (string | int32) to a string key.
+func progressTokenToString(token protocol.ProgressToken) string {
+	if s, ok := token.Value.(string); ok {
+		return s
+	}
+	if n, ok := token.Value.(int32); ok {
+		return fmt.Sprintf("%d", n)
+	}
+	return fmt.Sprintf("%v", token.Value)
+}
+
 // Notifications
 
 // HandleServerMessage processes window/showMessage notifications from the server
@@ -119,8 +226,9 @@ func HandleDiagnostics(client *Client, params json.RawMessage) {
 		return
 	}
 
-	// Save diagnostics in client
+	// Rotate previous snapshot, then save current diagnostics
 	client.diagnosticsMu.Lock()
+	client.previousDiagnostics[diagParams.URI] = client.diagnostics[diagParams.URI]
 	client.diagnostics[diagParams.URI] = diagParams.Diagnostics
 	client.diagnosticsMu.Unlock()
 

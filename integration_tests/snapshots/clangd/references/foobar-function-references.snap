@@ -1,14 +1,9 @@
 ---
 
 src/main.cpp
-References in File: 2
-At: L5:C6, L14:C3
+References in File: 1
+At: L14:C3
 
-5|void foo_bar() {
-6|  std::cout << "Hello, World!" << std::endl;
-7|  return;
-8|}
-...
 10|int main() {
 11|  helperFunction();
 12|  return 0;

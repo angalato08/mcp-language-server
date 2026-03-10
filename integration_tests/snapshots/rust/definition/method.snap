@@ -3,6 +3,7 @@
 Symbol: method
 File: src/types.rs
 Kind: Function
+Container Name: TestStruct
 Range: L18:C1 - L30:C2
 
 18|// Implementation for TestStruct
@@ -23,6 +24,7 @@ Range: L18:C1 - L30:C2
 Symbol: method
 File: src/types.rs
 Kind: Function
+Container Name: SharedStruct
 Range: L54:C1 - L64:C2
 
 54|impl SharedStruct {

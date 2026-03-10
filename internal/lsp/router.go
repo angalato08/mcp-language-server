@@ -12,6 +12,7 @@ import (
 // e.g., clangd handles both "c" and "cpp" — register config as "c",
 // and this maps "cpp" → "c" so both route to the same client.
 var languageGroups = map[string]string{
+	"c":               "cpp",
 	"cpp":             "c",
 	"typescriptreact": "typescript",
 	"javascriptreact": "javascript",
@@ -222,6 +223,20 @@ func (r *Router) NotifyChange(ctx context.Context, path string) error {
 		return nil
 	}
 	return rc.NotifyChange(ctx, path)
+}
+
+// RestartServer restarts the LSP server for the given language ID.
+// Returns nil if no server is running for the language (nothing to restart).
+func (r *Router) RestartServer(ctx context.Context, langID string) error {
+	r.mu.RLock()
+	rc, ok := r.clients[langID]
+	r.mu.RUnlock()
+	if !ok {
+		// Server not started yet — nothing to restart
+		return nil
+	}
+	lspLogger.Info("Restarting LSP server for language %q due to config change", langID)
+	return rc.Restart(ctx)
 }
 
 // DidChangeWatchedFiles broadcasts watched file events to ALL active clients.

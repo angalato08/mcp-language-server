@@ -1,12 +1,5 @@
 ---
 
-include/helper.hpp
-References in File: 1
-At: L1:C6
-
-1|void helperFunction();
-
-
 src/consumer.cpp
 References in File: 1
 At: L14:C28
@@ -20,13 +13,6 @@ At: L14:C28
 13|   */
 14|  void method(int param) { helperFunction(); }
 15|};
-
-
-src/helper.cpp
-References in File: 1
-At: L7:C6
-
-7|void helperFunction() { std::cout << "Helper function" << std::endl; }
 
 
 src/main.cpp

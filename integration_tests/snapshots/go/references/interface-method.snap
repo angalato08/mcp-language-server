@@ -36,3 +36,15 @@ At: L24:C20
 27|	var t SharedType = 100
 28|	fmt.Println(t)
 29|}
+
+
+service.go
+References in File: 1
+At: L30:C20
+
+26|func RunService() {
+27|	svc := &ServiceImpl{ServiceName: "test-service", Active: true}
+28|	var iface SharedInterface = svc
+29|	iface.Process()
+30|	fmt.Println(iface.GetName())
+31|}

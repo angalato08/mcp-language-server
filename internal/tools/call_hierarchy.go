@@ -30,6 +30,9 @@ func GetIncomingCalls(ctx context.Context, client *lsp.Client, filePath string, 
 			Item: item,
 		})
 		if err != nil {
+			if strings.Contains(err.Error(), "code: -32601") {
+				return "", fmt.Errorf("incoming_calls is not supported by this language server")
+			}
 			return "", fmt.Errorf("failed to get incoming calls: %v", err)
 		}
 
@@ -67,6 +70,9 @@ func GetOutgoingCalls(ctx context.Context, client *lsp.Client, filePath string, 
 			Item: item,
 		})
 		if err != nil {
+			if strings.Contains(err.Error(), "code: -32601") {
+				return "", fmt.Errorf("outgoing_calls is not supported by this language server (e.g. clangd does not implement callHierarchy/outgoingCalls)")
+			}
 			return "", fmt.Errorf("failed to get outgoing calls: %v", err)
 		}
 
@@ -103,7 +109,10 @@ func prepareCallHierarchy(ctx context.Context, client *lsp.Client, filePath stri
 
 	items, err := client.PrepareCallHierarchy(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("call hierarchy not supported or failed: %v", err)
+		if strings.Contains(err.Error(), "code: -32601") {
+			return nil, fmt.Errorf("call hierarchy is not supported by this language server")
+		}
+		return nil, fmt.Errorf("call hierarchy failed: %v", err)
 	}
 
 	return items, nil

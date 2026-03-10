@@ -3,10 +3,10 @@
 Symbol: foo_bar
 File: src/main.rs
 Kind: Function
-Range: L8:C1 - L12:C2
+Range: L10:C1 - L14:C2
 
- 8|// FooBar is a simple function for testing
- 9|fn foo_bar() -> String {
-10|    String::from("Hello, World!")
-11|    println!("Unreachable code"); // This is unreachable code
-12|}
+10|// FooBar is a simple function for testing
+11|fn foo_bar() -> String {
+12|    String::from("Hello, World!")
+13|    println!("Unreachable code"); // This is unreachable code
+14|}

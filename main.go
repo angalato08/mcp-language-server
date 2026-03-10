@@ -19,6 +19,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+// Set at build time via: go build -ldflags "-X main.version=..."
+// Falls back to "dev" when built without ldflags.
+var version = "dev"
+
 // Create a logger for the core component
 var coreLogger = logging.NewLogger(logging.Core)
 
@@ -96,9 +100,15 @@ func parseLSPFlags(flags []string, trailingArgs []string) ([]lsp.LanguageConfig,
 func parseConfig() (*config, error) {
 	cfg := &config{}
 	var lspFlags stringSlice
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.StringVar(&cfg.workspaceDir, "workspace", ".", "Path to workspace directory (defaults to current directory)")
 	flag.Var(&lspFlags, "lsp", "LSP server to use. Format: lang:command or just command. Can be specified multiple times.")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	workspaceDir, err := filepath.Abs(cfg.workspaceDir)
 	if err != nil {
@@ -152,7 +162,7 @@ func (s *mcpServer) start() error {
 
 	s.mcpServer = server.NewMCPServer(
 		"MCP Language Server",
-		"v0.0.2",
+		version,
 		server.WithLogging(),
 		server.WithRecovery(),
 	)
@@ -166,7 +176,7 @@ func (s *mcpServer) start() error {
 }
 
 func main() {
-	coreLogger.Info("MCP Language Server starting")
+	coreLogger.Info("MCP Language Server %s starting", version)
 
 	done := make(chan struct{})
 	sigChan := make(chan os.Signal, 1)

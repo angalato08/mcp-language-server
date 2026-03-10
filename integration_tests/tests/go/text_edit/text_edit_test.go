@@ -235,7 +235,7 @@ func RoundTripFunc() string {
 	time.Sleep(2 * time.Second)
 
 	// Verify the file is clean initially
-	result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1)
+	result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1, tools.DiagnosticFilter{})
 	if err != nil {
 		t.Fatalf("GetDiagnosticsForFile failed: %v", err)
 	}
@@ -263,7 +263,7 @@ func RoundTripFunc() string {
 	time.Sleep(3 * time.Second)
 
 	// Check diagnostics — LSP should now report a type error
-	result, err = tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1)
+	result, err = tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1, tools.DiagnosticFilter{})
 	if err != nil {
 		t.Fatalf("GetDiagnosticsForFile failed after edit: %v", err)
 	}

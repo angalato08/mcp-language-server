@@ -3,6 +3,7 @@ package lsp
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,8 +39,9 @@ type Client struct {
 	notificationMu       sync.RWMutex
 
 	// Diagnostic cache
-	diagnostics   map[protocol.DocumentUri][]protocol.Diagnostic
-	diagnosticsMu sync.RWMutex
+	diagnostics         map[protocol.DocumentUri][]protocol.Diagnostic
+	previousDiagnostics map[protocol.DocumentUri][]protocol.Diagnostic
+	diagnosticsMu       sync.RWMutex
 
 	// Signals when diagnostics are updated for a URI
 	diagnosticReady   map[protocol.DocumentUri]chan struct{}
@@ -49,9 +51,22 @@ type Client struct {
 	openFiles   map[string]*OpenFileInfo
 	openFilesMu sync.RWMutex
 
+	// Progress tracking (e.g. indexing)
+	activeProgress map[string]*ProgressInfo // token → info
+	progressMu     sync.RWMutex
+
 	// Closed when handleMessages exits (LSP process died)
 	done     chan struct{}
 	doneOnce sync.Once
+}
+
+// ProgressInfo tracks a single work-done progress operation.
+type ProgressInfo struct {
+	Token      string
+	Title      string
+	Message    string
+	Percentage uint32
+	Done       bool
 }
 
 func NewClient(command string, args ...string) (*Client, error) {
@@ -83,8 +98,10 @@ func NewClient(command string, args ...string) (*Client, error) {
 		notificationHandlers:  make(map[string]NotificationHandler),
 		serverRequestHandlers: make(map[string]ServerRequestHandler),
 		diagnostics:           make(map[protocol.DocumentUri][]protocol.Diagnostic),
+		previousDiagnostics:   make(map[protocol.DocumentUri][]protocol.Diagnostic),
 		diagnosticReady:       make(map[protocol.DocumentUri]chan struct{}),
 		openFiles:             make(map[string]*OpenFileInfo),
+		activeProgress:        make(map[string]*ProgressInfo),
 		done:                  make(chan struct{}),
 	}
 
@@ -204,6 +221,9 @@ func (c *Client) InitializeLSPClient(ctx context.Context, workspaceDir string) (
 					PublishDiagnostics: protocol.PublishDiagnosticsClientCapabilities{
 						VersionSupport: true,
 					},
+					CallHierarchy: &protocol.CallHierarchyClientCapabilities{
+						DynamicRegistration: true,
+					},
 					SemanticTokens: protocol.SemanticTokensClientCapabilities{
 						Requests: protocol.ClientSemanticTokensRequestOptions{
 							Range: &protocol.Or_ClientSemanticTokensRequestOptions_range{},
@@ -214,7 +234,9 @@ func (c *Client) InitializeLSPClient(ctx context.Context, workspaceDir string) (
 						Formats:        []protocol.TokenFormat{},
 					},
 				},
-				Window: protocol.WindowClientCapabilities{},
+				Window: protocol.WindowClientCapabilities{
+					WorkDoneProgress: true,
+				},
 			},
 			InitializationOptions: map[string]any{
 				"codelenses": map[string]bool{
@@ -246,6 +268,10 @@ func (c *Client) InitializeLSPClient(ctx context.Context, workspaceDir string) (
 	c.RegisterNotificationHandler("window/showMessage", HandleServerMessage)
 	c.RegisterNotificationHandler("textDocument/publishDiagnostics",
 		func(params json.RawMessage) { HandleDiagnostics(c, params) })
+	c.RegisterServerRequestHandler("window/workDoneProgress/create",
+		func(params json.RawMessage) (any, error) { return HandleWorkDoneProgressCreate(c, params) })
+	c.RegisterNotificationHandler("$/progress",
+		func(params json.RawMessage) { HandleProgress(c, params) })
 
 	// Notify the LSP server
 	err := c.Initialized(ctx, protocol.InitializedParams{})
@@ -321,8 +347,9 @@ func (c *Client) WaitForServerReady(ctx context.Context) error {
 }
 
 type OpenFileInfo struct {
-	Version int32
-	URI     protocol.DocumentUri
+	Version     int32
+	URI         protocol.DocumentUri
+	ContentHash [sha256.Size]byte // hash of content last sent to the server
 }
 
 func (c *Client) OpenFile(ctx context.Context, filepath string) error {
@@ -356,14 +383,45 @@ func (c *Client) OpenFile(ctx context.Context, filepath string) error {
 
 	c.openFilesMu.Lock()
 	c.openFiles[uri] = &OpenFileInfo{
-		Version: 1,
-		URI:     protocol.DocumentUri(uri),
+		Version:     1,
+		URI:         protocol.DocumentUri(uri),
+		ContentHash: sha256.Sum256(content),
 	}
 	c.openFilesMu.Unlock()
 
 	lspLogger.Debug("Opened file: %s", filepath)
 
 	return nil
+}
+
+// SyncFileFromDisk ensures the LSP server has the latest on-disk content.
+// If the file is not yet open, it opens it. If it is open but disk content
+// has changed since the last sync, it sends a didChange notification.
+// Returns true if a sync (open or change) was performed.
+func (c *Client) SyncFileFromDisk(ctx context.Context, filepath string) (bool, error) {
+	uri := fmt.Sprintf("file://%s", filepath)
+
+	c.openFilesMu.RLock()
+	fileInfo, isOpen := c.openFiles[uri]
+	c.openFilesMu.RUnlock()
+
+	if !isOpen {
+		return true, c.OpenFile(ctx, filepath)
+	}
+
+	// File is open — check if disk content differs
+	content, err := os.ReadFile(filepath)
+	if err != nil {
+		return false, fmt.Errorf("error reading file: %w", err)
+	}
+
+	diskHash := sha256.Sum256(content)
+	if diskHash == fileInfo.ContentHash {
+		return false, nil // content unchanged
+	}
+
+	// Content changed on disk — send didChange
+	return true, c.NotifyChange(ctx, filepath)
 }
 
 func (c *Client) NotifyChange(ctx context.Context, filepath string) error {
@@ -381,8 +439,9 @@ func (c *Client) NotifyChange(ctx context.Context, filepath string) error {
 		return fmt.Errorf("cannot notify change for unopened file: %s", filepath)
 	}
 
-	// Increment version
+	// Increment version and update content hash
 	fileInfo.Version++
+	fileInfo.ContentHash = sha256.Sum256(content)
 	version := fileInfo.Version
 	c.openFilesMu.Unlock()
 
@@ -463,6 +522,13 @@ func (c *Client) IsFileOpen(filepath string) bool {
 	return exists
 }
 
+// RestartServer is a no-op on a bare Client. It exists to satisfy the
+// watcher.LSPClient interface when a Client is used directly (e.g. tests).
+// Real restart logic lives on Router.RestartServer / RestartableClient.Restart.
+func (c *Client) RestartServer(ctx context.Context, langID string) error {
+	return nil
+}
+
 // CloseAllFiles closes all currently open files
 func (c *Client) CloseAllFiles(ctx context.Context) {
 	c.openFilesMu.Lock()
@@ -522,6 +588,33 @@ func (c *Client) SignalDiagnostics(uri protocol.DocumentUri) {
 	}
 }
 
+// GetActiveProgress returns a snapshot of all active (non-done) progress operations.
+func (c *Client) GetActiveProgress() []ProgressInfo {
+	c.progressMu.RLock()
+	defer c.progressMu.RUnlock()
+
+	var result []ProgressInfo
+	for _, p := range c.activeProgress {
+		if !p.Done {
+			result = append(result, *p)
+		}
+	}
+	return result
+}
+
+// IsIndexing returns true if any active progress operation looks like indexing.
+func (c *Client) IsIndexing() bool {
+	c.progressMu.RLock()
+	defer c.progressMu.RUnlock()
+
+	for _, p := range c.activeProgress {
+		if !p.Done {
+			return true
+		}
+	}
+	return false
+}
+
 // GetFileDiagnostics returns diagnostics for a single URI
 func (c *Client) GetFileDiagnostics(uri protocol.DocumentUri) []protocol.Diagnostic {
 	c.diagnosticsMu.RLock()
@@ -543,6 +636,112 @@ func (c *Client) GetAllDiagnostics() map[protocol.DocumentUri][]protocol.Diagnos
 		}
 	}
 	return result
+}
+
+// DiagnosticDiff holds new and resolved diagnostics for a single URI.
+type DiagnosticDiff struct {
+	New      []protocol.Diagnostic
+	Resolved []protocol.Diagnostic
+}
+
+// GetDiagnosticDiff returns the new and resolved diagnostics for a single URI
+// by comparing previousDiagnostics against current diagnostics.
+func (c *Client) GetDiagnosticDiff(uri protocol.DocumentUri) (newDiags, resolved []protocol.Diagnostic) {
+	c.diagnosticsMu.RLock()
+	defer c.diagnosticsMu.RUnlock()
+
+	prev := c.previousDiagnostics[uri]
+	curr := c.diagnostics[uri]
+
+	return ComputeDiagnosticDiff(prev, curr)
+}
+
+// GetAllDiagnosticDiffs returns diagnostic diffs for all URIs that have changes.
+func (c *Client) GetAllDiagnosticDiffs() map[protocol.DocumentUri]*DiagnosticDiff {
+	c.diagnosticsMu.RLock()
+	defer c.diagnosticsMu.RUnlock()
+
+	result := make(map[protocol.DocumentUri]*DiagnosticDiff)
+
+	// Check all URIs that appear in either previous or current
+	seen := make(map[protocol.DocumentUri]bool)
+	for uri := range c.diagnostics {
+		seen[uri] = true
+	}
+	for uri := range c.previousDiagnostics {
+		seen[uri] = true
+	}
+
+	for uri := range seen {
+		prev := c.previousDiagnostics[uri]
+		curr := c.diagnostics[uri]
+		newDiags, resolved := ComputeDiagnosticDiff(prev, curr)
+		if len(newDiags) > 0 || len(resolved) > 0 {
+			result[uri] = &DiagnosticDiff{New: newDiags, Resolved: resolved}
+		}
+	}
+
+	return result
+}
+
+
+// ComputeDiagnosticDiff is a pure function that computes the diff between two diagnostic slices.
+// New diagnostics are those in current but not in previous; resolved are in previous but not in current.
+// Key: (Range.Start.Line, Range.Start.Character, Message, Code, Source)
+func ComputeDiagnosticDiff(previous, current []protocol.Diagnostic) (newDiags, resolved []protocol.Diagnostic) {
+	type diagKey struct {
+		Line    uint32
+		Char    uint32
+		Message string
+		Code    string
+		Source  string
+	}
+
+	makeKey := func(d protocol.Diagnostic) diagKey {
+		codeStr := ""
+		if d.Code != nil {
+			codeStr = fmt.Sprintf("%v", d.Code)
+		}
+		return diagKey{
+			Line:    d.Range.Start.Line,
+			Char:    d.Range.Start.Character,
+			Message: d.Message,
+			Code:    codeStr,
+			Source:  d.Source,
+		}
+	}
+
+	prevSet := make(map[diagKey]int)
+	for _, d := range previous {
+		prevSet[makeKey(d)]++
+	}
+
+	currSet := make(map[diagKey]int)
+	for _, d := range current {
+		currSet[makeKey(d)]++
+	}
+
+	// New diagnostics: in current but not in previous
+	for _, d := range current {
+		k := makeKey(d)
+		if prevSet[k] > 0 {
+			prevSet[k]--
+		} else {
+			newDiags = append(newDiags, d)
+		}
+	}
+
+	// Resolved diagnostics: in previous but not in current
+	for _, d := range previous {
+		k := makeKey(d)
+		if currSet[k] > 0 {
+			currSet[k]--
+		} else {
+			resolved = append(resolved, d)
+		}
+	}
+
+	return newDiags, resolved
 }
 
 func ptrTo[T any](v T) *T {

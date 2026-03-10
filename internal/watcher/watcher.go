@@ -194,6 +194,12 @@ func (w *WorkspaceWatcher) WatchWorkspace(ctx context.Context, workspacePath str
 			if info, err := os.Stat(event.Name); err == nil {
 				isFile = !info.IsDir()
 				if isFile {
+					// Check for config files BEFORE the dot-file exclusion
+					if langID, ok := lsp.ConfigFileLanguages[filepath.Base(event.Name)]; ok {
+						w.debounceConfigRestart(ctx, event.Name, langID)
+						continue
+					}
+
 					isExcluded = w.shouldExcludeFile(event.Name)
 					if isExcluded {
 						watcherLogger.Debug("Skipping excluded file: %s", event.Name)
@@ -467,6 +473,31 @@ func (w *WorkspaceWatcher) matchesPattern(path string, pattern protocol.GlobPatt
 	watcherLogger.Debug("Relative path matching: %s against %s = %v", relPath, patternText, isMatch)
 
 	return isMatch
+}
+
+// debounceConfigRestart debounces config file changes and triggers an LSP server restart.
+// Uses a longer debounce (1s) than normal file events to batch multiple config edits.
+func (w *WorkspaceWatcher) debounceConfigRestart(ctx context.Context, filePath string, langID string) {
+	w.debounceMu.Lock()
+	defer w.debounceMu.Unlock()
+
+	key := fmt.Sprintf("config-restart:%s", langID)
+
+	if timer, exists := w.debounceMap[key]; exists {
+		timer.Stop()
+	}
+
+	watcherLogger.Info("Config file changed: %s — will restart %q server", filepath.Base(filePath), langID)
+
+	w.debounceMap[key] = time.AfterFunc(1*time.Second, func() {
+		if err := w.client.RestartServer(ctx, langID); err != nil {
+			watcherLogger.Error("Failed to restart %q server after config change: %v", langID, err)
+		}
+
+		w.debounceMu.Lock()
+		delete(w.debounceMap, key)
+		w.debounceMu.Unlock()
+	})
 }
 
 // debounceHandleFileEvent handles file events with debouncing to reduce notifications

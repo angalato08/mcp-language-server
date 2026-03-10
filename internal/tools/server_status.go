@@ -33,6 +33,21 @@ func ServerStatus(router *lsp.Router) string {
 			result.WriteString("Status: NOT STARTED\n")
 		}
 
+		// Indexing status
+		activeProgress := client.GetActiveProgress()
+		if len(activeProgress) > 0 {
+			result.WriteString("Indexing: YES\n")
+			for _, p := range activeProgress {
+				if p.Percentage > 0 {
+					result.WriteString(fmt.Sprintf("  [%d%%] %s: %s\n", p.Percentage, p.Title, p.Message))
+				} else {
+					result.WriteString(fmt.Sprintf("  %s: %s\n", p.Title, p.Message))
+				}
+			}
+		} else {
+			result.WriteString("Indexing: NO (ready)\n")
+		}
+
 		// Open files
 		openFiles := client.GetOpenFiles()
 		result.WriteString(fmt.Sprintf("Open files: %d\n", len(openFiles)))

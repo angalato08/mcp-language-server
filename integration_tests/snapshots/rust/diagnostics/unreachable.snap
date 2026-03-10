@@ -1,15 +1,15 @@
 src/main.rs
 Diagnostics in File: 6
-ERROR at L10:C34: Syntax Error: expected SEMICOLON (Source: rust-analyzer, Code: syntax-error)
-ERROR at L10:C34: expected `;`, found `println` (Source: rustc)
-HINT at L11:C5: unexpected token (Source: rustc)
-HINT at L10:C34: add `;` here: `;` (Source: rustc)
-ERROR at L9:C17: mismatched types
+ERROR at L12:C34: Syntax Error: expected SEMICOLON (Source: rust-analyzer, Code: syntax-error)
+ERROR at L12:C34: expected `;`, found `println` (Source: rustc)
+HINT at L13:C5: unexpected token (Source: rustc)
+HINT at L12:C34: add `;` here: `;` (Source: rustc)
+ERROR at L11:C17: mismatched types
 expected `String`, found `()` (Source: rustc, Code: E0308)
-HINT at L9:C4: implicitly returns `()` as its body has no tail or `return` expression (Source: rustc, Code: E0308)
+HINT at L11:C4: implicitly returns `()` as its body has no tail or `return` expression (Source: rustc, Code: E0308)
 
- 8|// FooBar is a simple function for testing
- 9|fn foo_bar() -> String {
-10|    String::from("Hello, World!")
-11|    println!("Unreachable code"); // This is unreachable code
-12|}
+10|// FooBar is a simple function for testing
+11|fn foo_bar() -> String {
+12|    String::from("Hello, World!")
+13|    println!("Unreachable code"); // This is unreachable code
+14|}

@@ -11,3 +11,13 @@ var KnownLSPCommands = map[string]string{
 	"typescript-language-server": "typescript",
 	"tsserver":                   "typescript",
 }
+
+// ConfigFileLanguages maps config filenames (dot-files) to the language ID
+// of the LSP server that should be restarted when the file changes.
+// These files are typically cached at server startup (e.g. clangd reads
+// .clang-tidy once), so editing them requires a server restart.
+var ConfigFileLanguages = map[string]string{
+	".clang-tidy":   "c",
+	".clangd":       "c",
+	".clang-format": "c",
+}

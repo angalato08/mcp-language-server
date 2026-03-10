@@ -14,10 +14,16 @@ type FileEvent struct {
 	Type protocol.FileChangeType
 }
 
+// RestartEvent records a server restart triggered by a config file change.
+type RestartEvent struct {
+	LangID string
+}
+
 // MockLSPClient implements the watcher.LSPClient interface for testing
 type MockLSPClient struct {
 	mu             sync.Mutex
 	events         []FileEvent
+	restartEvents  []RestartEvent
 	openedFiles    map[string]bool
 	openErrors     map[string]error
 	notifyErrors   map[string]error
@@ -109,6 +115,31 @@ func (m *MockLSPClient) DidChangeWatchedFiles(ctx context.Context, params protoc
 	}
 
 	return nil
+}
+
+// RestartServer records a restart event for the given language.
+func (m *MockLSPClient) RestartServer(ctx context.Context, langID string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.restartEvents = append(m.restartEvents, RestartEvent{LangID: langID})
+
+	select {
+	case m.eventsReceived <- struct{}{}:
+	default:
+	}
+
+	return nil
+}
+
+// GetRestartEvents returns a copy of all recorded restart events.
+func (m *MockLSPClient) GetRestartEvents() []RestartEvent {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	result := make([]RestartEvent, len(m.restartEvents))
+	copy(result, m.restartEvents)
+	return result
 }
 
 // GetEvents returns a copy of all recorded events

@@ -126,6 +126,9 @@ func TestOutgoingCalls(t *testing.T) {
 
 			result, err := tools.GetOutgoingCalls(ctx, suite.Client, filePath, tc.line, tc.column)
 			if err != nil {
+				if strings.Contains(err.Error(), "not supported") {
+					t.Skipf("Skipping: %v", err)
+				}
 				t.Fatalf("GetOutgoingCalls failed: %v", err)
 			}
 

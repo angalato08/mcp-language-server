@@ -3,10 +3,26 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"github.com/angalato08/mcp-language-server/internal/protocol"
 	"github.com/angalato08/mcp-language-server/internal/tools"
 	"github.com/mark3labs/mcp-go/mcp"
 )
+func parseSeverity(s string) protocol.DiagnosticSeverity {
+	switch strings.ToLower(s) {
+	case "error":
+		return protocol.SeverityError
+	case "warning":
+		return protocol.SeverityWarning
+	case "info", "information":
+		return protocol.SeverityInformation
+	case "hint":
+		return protocol.SeverityHint
+	default:
+		return 0
+	}
+}
 
 func (s *mcpServer) registerTools() error {
 	coreLogger.Debug("Registering MCP tools")
@@ -51,6 +67,18 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithString("filePath",
 			mcp.Required(),
 			mcp.Description("Path to the file to edit"),
+		),
+		mcp.WithBoolean("showDiagnostics",
+			mcp.Description("If true, return diagnostics for the file after applying edits. Default true."),
+			mcp.DefaultBool(true),
+		),
+		mcp.WithBoolean("showDiff",
+			mcp.Description("If true and showDiagnostics is true, show only new/resolved diagnostics instead of full list."),
+			mcp.DefaultBool(false),
+		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'text' (default) for human-readable or 'json' for structured JSON."),
+			mcp.Enum("text", "json"),
 		),
 	)
 
@@ -98,6 +126,51 @@ func (s *mcpServer) registerTools() error {
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to apply edits: %v", err)), nil
 		}
+
+		showDiagnostics := true
+		if v, ok := request.Params.Arguments["showDiagnostics"].(bool); ok {
+			showDiagnostics = v
+		}
+		if showDiagnostics {
+			showDiff := false
+			if v, ok := request.Params.Arguments["showDiff"].(bool); ok {
+				showDiff = v
+			}
+			outputFormat := "text"
+			if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+				outputFormat = v
+			}
+
+			if outputFormat == "json" {
+				var diagJSON string
+				var diagErr error
+				if showDiff {
+					diagJSON, diagErr = tools.GetDiagnosticDiffForFileJSON(ctx, client, filePath, 10, tools.DiagnosticFilter{})
+				} else {
+					diagJSON, diagErr = tools.GetDiagnosticsForFileJSON(ctx, client, filePath, 10, tools.DiagnosticFilter{})
+				}
+				if diagErr == nil {
+					response += "\n\n---\n" + diagJSON
+				} else {
+					coreLogger.Warn("Failed to fetch post-edit diagnostics: %v", diagErr)
+				}
+				return mcp.NewToolResultText(response), nil
+			}
+
+			var diagText string
+			var diagErr error
+			if showDiff {
+				diagText, diagErr = tools.GetDiagnosticDiffForFile(ctx, client, filePath, 3, true, 10, tools.DiagnosticFilter{})
+			} else {
+				diagText, diagErr = tools.GetDiagnosticsForFile(ctx, client, filePath, 3, true, 10, tools.DiagnosticFilter{})
+			}
+			if diagErr == nil {
+				response += "\n\n---\n" + diagText
+			} else {
+				coreLogger.Warn("Failed to fetch post-edit diagnostics: %v", diagErr)
+			}
+		}
+
 		return mcp.NewToolResultText(tools.TrimResponse(response)), nil
 	})
 
@@ -311,14 +384,19 @@ func (s *mcpServer) registerTools() error {
 	})
 
 	getDiagnosticsTool := mcp.NewTool("diagnostics",
-		mcp.WithDescription("Get diagnostic information for a specific file from the language server."),
+		mcp.WithDescription("Get diagnostic information for files from the language server. Provide exactly one of filePath, files, or directory."),
 		mcp.WithString("filePath",
-			mcp.Required(),
-			mcp.Description("The path to the file to get diagnostics for"),
+			mcp.Description("Path to a single file to get diagnostics for."),
+		),
+		mcp.WithArray("files",
+			mcp.Description("Array of file paths to scan for diagnostics."),
+			mcp.Items(map[string]any{"type": "string"}),
+		),
+		mcp.WithString("directory",
+			mcp.Description("Directory to scan recursively for source files with diagnostics."),
 		),
 		mcp.WithNumber("contextLines",
-			mcp.Description("Lines to include around each diagnostic."),
-			mcp.DefaultNumber(5),
+			mcp.Description("Lines to include around each diagnostic. Default 5 for single file, 0 for batch."),
 		),
 		mcp.WithBoolean("showLineNumbers",
 			mcp.Description("If true, adds line numbers to the output"),
@@ -327,44 +405,291 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithNumber("limit",
 			mcp.Description("Maximum number of diagnostics to return. Default 20. Use -1 for all."),
 		),
+		mcp.WithArray("exclude",
+			mcp.Description("Exclude diagnostics whose code contains any of these substrings"),
+			mcp.Items(map[string]any{"type": "string"}),
+		),
+		mcp.WithString("severity",
+			mcp.Description("Minimum severity to include"),
+			mcp.Enum("error", "warning", "info", "hint"),
+		),
+		mcp.WithBoolean("showDiff",
+			mcp.Description("If true, show only new and resolved diagnostics since the last update."),
+			mcp.DefaultBool(false),
+		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'text' (default) for human-readable or 'json' for structured JSON."),
+			mcp.Enum("text", "json"),
+		),
 	)
 
 	s.mcpServer.AddTool(getDiagnosticsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		filePath, ok := request.Params.Arguments["filePath"].(string)
-		if !ok {
-			return mcp.NewToolResultError("filePath must be a string"), nil
+		// Parse the three mutually exclusive input modes
+		filePathStr, hasFilePath := request.Params.Arguments["filePath"].(string)
+		filesArg, hasFiles := request.Params.Arguments["files"]
+		directoryStr, hasDirectory := request.Params.Arguments["directory"].(string)
+
+		// Validate: check which modes are actually provided
+		var filesArr []any
+		if hasFiles {
+			filesArr, hasFiles = filesArg.([]any)
 		}
-		filePath = tools.ResolveFilePath(filePath)
-		contextLines := getInt(request.Params.Arguments, "contextLines", 5)
+
+		modeCount := 0
+		if hasFilePath && filePathStr != "" {
+			modeCount++
+		}
+		if hasFiles {
+			modeCount++
+		}
+		if hasDirectory && directoryStr != "" {
+			modeCount++
+		}
+		if modeCount == 0 {
+			return mcp.NewToolResultError("One of filePath, files, or directory is required"), nil
+		}
+		if modeCount > 1 {
+			return mcp.NewToolResultError("Specify exactly one of filePath, files, or directory"), nil
+		}
+
+		// Determine if this is batch mode (files or directory)
+		isBatch := !hasFilePath || filePathStr == ""
+
+		// Default contextLines: 5 for single file, 0 for batch
+		defaultContextLines := 5
+		if isBatch {
+			defaultContextLines = 0
+		}
+		contextLines := getInt(request.Params.Arguments, "contextLines", defaultContextLines)
+
 		showLineNumbers := true
 		if v, ok := request.Params.Arguments["showLineNumbers"].(bool); ok {
 			showLineNumbers = v
 		}
 		limit := getInt(request.Params.Arguments, "limit", 20)
-
-		coreLogger.Debug("Executing diagnostics for file: %s", filePath)
-		client, err := s.router.ClientForFile(ctx, filePath)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
+		showDiff := false
+		if v, ok := request.Params.Arguments["showDiff"].(bool); ok {
+			showDiff = v
 		}
-		text, err := tools.GetDiagnosticsForFile(ctx, client, filePath, contextLines, showLineNumbers, limit)
+
+		// Build diagnostic filter
+		var filter tools.DiagnosticFilter
+		if excludeArg, ok := request.Params.Arguments["exclude"]; ok {
+			if excludeArr, ok := excludeArg.([]any); ok {
+				for _, item := range excludeArr {
+					if s, ok := item.(string); ok {
+						filter.Exclude = append(filter.Exclude, s)
+					}
+				}
+			}
+		}
+		if sevStr, ok := request.Params.Arguments["severity"].(string); ok {
+			filter.MinSeverity = parseSeverity(sevStr)
+		}
+		outputFormat := "text"
+		if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+			outputFormat = v
+		}
+
+		// JSON output mode
+		if outputFormat == "json" {
+			if hasFilePath && filePathStr != "" {
+				filePath := tools.ResolveFilePath(filePathStr)
+				coreLogger.Debug("Executing diagnostics (JSON) for file: %s (showDiff=%v)", filePath, showDiff)
+				client, err := s.router.ClientForFile(ctx, filePath)
+				if err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				var jsonStr string
+				if showDiff {
+					jsonStr, err = tools.GetDiagnosticDiffForFileJSON(ctx, client, filePath, limit, filter)
+				} else {
+					jsonStr, err = tools.GetDiagnosticsForFileJSON(ctx, client, filePath, limit, filter)
+				}
+				if err != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
+				}
+				return mcp.NewToolResultText(jsonStr), nil
+			}
+
+			// Batch mode: collect file paths
+			var filePaths []string
+			if hasFiles {
+				if len(filesArr) == 0 {
+					return mcp.NewToolResultError("No files specified for batch diagnostics"), nil
+				}
+				for _, item := range filesArr {
+					if fp, ok := item.(string); ok {
+						filePaths = append(filePaths, tools.ResolveFilePath(fp))
+					}
+				}
+			} else {
+				dirPath := tools.ResolveFilePath(directoryStr)
+				var err error
+				filePaths, err = tools.CollectFilesFromDirectory(dirPath)
+				if err != nil {
+					return mcp.NewToolResultError(fmt.Sprintf("failed to scan directory: %v", err)), nil
+				}
+				if len(filePaths) == 0 {
+					return mcp.NewToolResultText(fmt.Sprintf("No supported source files found in %s", directoryStr)), nil
+				}
+			}
+
+			coreLogger.Debug("Executing batch diagnostics (JSON) for %d files (showDiff=%v)", len(filePaths), showDiff)
+			jsonStr, err := tools.GetDiagnosticsForFilesJSON(ctx, s.router, filePaths, limit, showDiff, filter)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get batch diagnostics: %v", err)), nil
+			}
+			return mcp.NewToolResultText(jsonStr), nil
+		}
+
+		// Single file mode (original behavior)
+		if hasFilePath && filePathStr != "" {
+			filePath := tools.ResolveFilePath(filePathStr)
+			coreLogger.Debug("Executing diagnostics for file: %s (showDiff=%v)", filePath, showDiff)
+			client, err := s.router.ClientForFile(ctx, filePath)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			var text string
+			if showDiff {
+				text, err = tools.GetDiagnosticDiffForFile(ctx, client, filePath, contextLines, showLineNumbers, limit, filter)
+			} else {
+				text, err = tools.GetDiagnosticsForFile(ctx, client, filePath, contextLines, showLineNumbers, limit, filter)
+			}
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
+			}
+			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+		}
+
+		// Batch mode: files array
+		if hasFiles {
+			if len(filesArr) == 0 {
+				return mcp.NewToolResultError("No files specified for batch diagnostics"), nil
+			}
+			var filePaths []string
+			for _, item := range filesArr {
+				if fp, ok := item.(string); ok {
+					filePaths = append(filePaths, tools.ResolveFilePath(fp))
+				}
+			}
+			coreLogger.Debug("Executing batch diagnostics for %d files (showDiff=%v)", len(filePaths), showDiff)
+			text, err := tools.GetDiagnosticsForFiles(ctx, s.router, filePaths, contextLines, showLineNumbers, limit, showDiff, filter)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get batch diagnostics: %v", err)), nil
+			}
+			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+		}
+
+		// Batch mode: directory
+		dirPath := tools.ResolveFilePath(directoryStr)
+		coreLogger.Debug("Executing directory diagnostics for: %s (showDiff=%v)", dirPath, showDiff)
+		filePaths, err := tools.CollectFilesFromDirectory(dirPath)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("failed to get diagnostics: %v", err)), nil
+			return mcp.NewToolResultError(fmt.Sprintf("failed to scan directory: %v", err)), nil
+		}
+		if len(filePaths) == 0 {
+			return mcp.NewToolResultText(fmt.Sprintf("No supported source files found in %s", directoryStr)), nil
+		}
+		text, err := tools.GetDiagnosticsForFiles(ctx, s.router, filePaths, contextLines, showLineNumbers, limit, showDiff, filter)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get directory diagnostics: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
 	workspaceDiagnosticsTool := mcp.NewTool("workspace_diagnostics",
 		mcp.WithDescription("Get diagnostic information for all active files in the workspace."),
+		mcp.WithNumber("contextLines",
+			mcp.Description("Lines of source code context to include around each diagnostic. Default 0 (no context)."),
+			mcp.DefaultNumber(0),
+		),
+		mcp.WithBoolean("showLineNumbers",
+			mcp.Description("If true, adds line numbers to context output. Default true."),
+			mcp.DefaultBool(true),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of diagnostics per file. Default 20. Use -1 for all."),
+		),
+		mcp.WithArray("exclude",
+			mcp.Description("Exclude diagnostics whose code contains any of these substrings"),
+			mcp.Items(map[string]any{"type": "string"}),
+		),
+		mcp.WithString("severity",
+			mcp.Description("Minimum severity to include"),
+			mcp.Enum("error", "warning", "info", "hint"),
+		),
+		mcp.WithBoolean("showDiff",
+			mcp.Description("If true, show only new and resolved diagnostics since the last update."),
+			mcp.DefaultBool(false),
+		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'text' (default) for human-readable or 'json' for structured JSON."),
+			mcp.Enum("text", "json"),
+		),
 	)
 
 	s.mcpServer.AddTool(workspaceDiagnosticsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		coreLogger.Debug("Executing workspace_diagnostics")
+		contextLines := getInt(request.Params.Arguments, "contextLines", 0)
+		showLineNumbers := true
+		if v, ok := request.Params.Arguments["showLineNumbers"].(bool); ok {
+			showLineNumbers = v
+		}
+		limit := getInt(request.Params.Arguments, "limit", 20)
+
+		// Build diagnostic filter
+		var filter tools.DiagnosticFilter
+		if excludeArg, ok := request.Params.Arguments["exclude"]; ok {
+			if excludeArr, ok := excludeArg.([]any); ok {
+				for _, item := range excludeArr {
+					if s, ok := item.(string); ok {
+						filter.Exclude = append(filter.Exclude, s)
+					}
+				}
+			}
+		}
+		if sevStr, ok := request.Params.Arguments["severity"].(string); ok {
+			filter.MinSeverity = parseSeverity(sevStr)
+		}
+		showDiff := false
+		if v, ok := request.Params.Arguments["showDiff"].(bool); ok {
+			showDiff = v
+		}
+
+		outputFormat := "text"
+		if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+			outputFormat = v
+		}
+
+		coreLogger.Debug("Executing workspace_diagnostics (showDiff=%v, contextLines=%d, outputFormat=%s)", showDiff, contextLines, outputFormat)
 		clients := s.router.ActiveClients()
 		if len(clients) == 0 {
 			return mcp.NewToolResultError("no LSP servers are running; make a file-based request first to start a server"), nil
 		}
-		text, err := tools.GetAllDiagnostics(ctx, clients)
+
+		if outputFormat == "json" {
+			var jsonStr string
+			var err error
+			if showDiff {
+				jsonStr, err = tools.GetAllDiagnosticDiffsJSON(ctx, clients, limit, filter)
+			} else {
+				jsonStr, err = tools.GetAllDiagnosticsJSON(ctx, clients, limit, filter)
+			}
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get workspace diagnostics: %v", err)), nil
+			}
+			return mcp.NewToolResultText(jsonStr), nil
+		}
+
+		var text string
+		var err error
+		if showDiff {
+			text, err = tools.GetAllDiagnosticDiffs(ctx, clients, contextLines, showLineNumbers, limit, filter)
+		} else {
+			text, err = tools.GetAllDiagnostics(ctx, clients, contextLines, showLineNumbers, limit, filter)
+		}
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get workspace diagnostics: %v", err)), nil
 		}
@@ -548,6 +873,59 @@ func (s *mcpServer) registerTools() error {
 		text, err := tools.FormatFile(ctx, client, filePath, tabSize, insertSpaces)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to format file: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	applyFixTool := mcp.NewTool("apply_fix",
+		mcp.WithDescription("Apply a quick-fix code action for a diagnostic at the specified position. Use diagnostics tool first to find fixable diagnostics, then apply the fix."),
+		mcp.WithString("filePath", mcp.Required(),
+			mcp.Description("Path to the file containing the diagnostic to fix")),
+		mcp.WithNumber("line", mcp.Required(),
+			mcp.Description("The line number of the diagnostic (1-indexed)")),
+		mcp.WithNumber("column", mcp.Required(),
+			mcp.Description("The column number of the diagnostic (1-indexed)")),
+		mcp.WithString("diagnosticCode",
+			mcp.Description("Optional diagnostic code to disambiguate multiple diagnostics at the same position")),
+		mcp.WithBoolean("applyAll",
+			mcp.Description("If true, apply all preferred quick-fixes for the entire file. When true, line and column are ignored."),
+			mcp.DefaultBool(false)),
+	)
+
+	s.mcpServer.AddTool(applyFixTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		filePath = tools.ResolveFilePath(filePath)
+
+		applyAll := false
+		if v, ok := request.Params.Arguments["applyAll"].(bool); ok {
+			applyAll = v
+		}
+
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		if applyAll {
+			coreLogger.Debug("Executing apply_fix (applyAll) for file: %s", filePath)
+			text, err := tools.ApplyAllFixes(ctx, client, filePath)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("failed to apply fixes: %v", err)), nil
+			}
+			return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+		}
+
+		line := getInt(request.Params.Arguments, "line", 0)
+		column := getInt(request.Params.Arguments, "column", 0)
+		diagnosticCode, _ := request.Params.Arguments["diagnosticCode"].(string)
+
+		coreLogger.Debug("Executing apply_fix for file: %s line: %d column: %d", filePath, line, column)
+		text, err := tools.ApplyFix(ctx, client, filePath, line, column, diagnosticCode)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to apply fix: %v", err)), nil
 		}
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})

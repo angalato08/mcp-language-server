@@ -170,6 +170,64 @@ func (rc *RestartableClient) DidChangeWatchedFiles(ctx context.Context, params p
 	return c.DidChangeWatchedFiles(ctx, params)
 }
 
+// Restart performs a graceful restart of the LSP server. Unlike the crash-recovery
+// restart(), this is an intentional restart (e.g. config file changed) with no backoff.
+// It preserves open files across the restart.
+func (rc *RestartableClient) Restart(ctx context.Context) error {
+	if !rc.restarting.CompareAndSwap(false, true) {
+		return ErrServerRestarting
+	}
+	defer rc.restarting.Store(false)
+
+	// Capture open files from the old client
+	rc.mu.RLock()
+	oldClient := rc.client
+	rc.mu.RUnlock()
+
+	var openFiles []string
+	if oldClient != nil {
+		openFiles = oldClient.GetOpenFiles()
+	}
+
+	// Graceful shutdown of old client
+	if oldClient != nil {
+		shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		_ = oldClient.Shutdown(shutdownCtx)
+		_ = oldClient.Exit(shutdownCtx)
+		_ = oldClient.Close()
+	}
+
+	// Create and initialize new client
+	newClient, err := NewClient(rc.command, rc.args...)
+	if err != nil {
+		return fmt.Errorf("failed to create LSP client during restart: %w", err)
+	}
+
+	if _, err := newClient.InitializeLSPClient(rc.ctx, rc.workspaceDir); err != nil {
+		newClient.Close()
+		return fmt.Errorf("failed to initialize LSP during restart: %w", err)
+	}
+
+	rc.mu.Lock()
+	rc.client = newClient
+	rc.restartCount = 0
+	rc.mu.Unlock()
+
+	// Re-open previously open files
+	for _, path := range openFiles {
+		if err := newClient.OpenFile(ctx, path); err != nil {
+			lspLogger.Warn("Failed to re-open file %s after restart: %v", path, err)
+		}
+	}
+
+	lspLogger.Info("LSP server restarted successfully (config change)")
+
+	// Start monitoring the new client
+	go rc.monitorHealth()
+	return nil
+}
+
 func (rc *RestartableClient) monitorHealth() {
 	rc.mu.RLock()
 	c := rc.client

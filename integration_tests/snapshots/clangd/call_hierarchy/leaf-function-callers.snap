@@ -1,3 +1,6 @@
 Incoming calls to: leafFunction (Function)
 
-No callers found.
+1. middleFunction (Function)
+   File: src/callchain.cpp
+   Range: L8:C13 - L8:C27
+   Call sites: 1 [L9:C26]

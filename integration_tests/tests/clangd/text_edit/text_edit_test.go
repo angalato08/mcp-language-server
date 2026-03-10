@@ -195,7 +195,7 @@ int calculate(int x, int y) {
 	time.Sleep(3 * time.Second)
 
 	// Verify clean initially
-	result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1)
+	result, err := tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1, tools.DiagnosticFilter{})
 	if err != nil {
 		t.Fatalf("GetDiagnosticsForFile failed: %v", err)
 	}
@@ -222,7 +222,7 @@ int calculate(int x, int y) {
 	time.Sleep(5 * time.Second)
 
 	// Check diagnostics — clangd should report a type error
-	result, err = tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1)
+	result, err = tools.GetDiagnosticsForFile(ctx, suite.Client, testFilePath, 2, true, -1, tools.DiagnosticFilter{})
 	if err != nil {
 		t.Fatalf("GetDiagnosticsForFile failed after edit: %v", err)
 	}

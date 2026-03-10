@@ -20,6 +20,11 @@ type LSPClient interface {
 
 	// DidChangeWatchedFiles sends watched file events to the server
 	DidChangeWatchedFiles(ctx context.Context, params protocol.DidChangeWatchedFilesParams) error
+
+	// RestartServer restarts the LSP server for the given language ID.
+	// Used when config files (e.g. .clang-tidy) change and the server
+	// needs to re-read them.
+	RestartServer(ctx context.Context, langID string) error
 }
 
 // Re-export from common for compatibility
