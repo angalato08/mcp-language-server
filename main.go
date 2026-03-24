@@ -143,7 +143,7 @@ func parseConfig() (*config, error) {
 	var lspFlags stringSlice
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.StringVar(&cfg.workspaceDir, "workspace", ".", "Path to workspace directory (defaults to current directory)")
-	flag.Var(&lspFlags, "lsp", "LSP server to use. Format: lang:command or just command. Can be specified multiple times.")
+	flag.Var(&lspFlags, "lsp", "LSP server to use (optional — auto-detected if omitted). Format: lang:command or just command. Can be specified multiple times.")
 	flag.Parse()
 
 	if *showVersion {
@@ -161,12 +161,20 @@ func parseConfig() (*config, error) {
 		return nil, fmt.Errorf("workspace directory does not exist: %s", cfg.workspaceDir)
 	}
 
-	// Parse LSP flags
-	lspConfigs, err := parseLSPFlags(lspFlags, flag.Args())
-	if err != nil {
-		return nil, err
+	// Configure LSP servers: explicit flags or auto-detect
+	if len(lspFlags) > 0 {
+		lspConfigs, err := parseLSPFlags(lspFlags, flag.Args())
+		if err != nil {
+			return nil, err
+		}
+		cfg.lspConfigs = lspConfigs
+	} else {
+		lspConfigs, err := lsp.DetectLSPConfigs(cfg.workspaceDir)
+		if err != nil {
+			return nil, fmt.Errorf("auto-detection failed: %v\nHint: use --lsp to manually specify a language server", err)
+		}
+		cfg.lspConfigs = lspConfigs
 	}
-	cfg.lspConfigs = lspConfigs
 
 	return cfg, nil
 }
