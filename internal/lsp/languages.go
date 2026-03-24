@@ -10,6 +10,7 @@ var KnownLSPCommands = map[string]string{
 	"clangd":                     "c",
 	"typescript-language-server": "typescript",
 	"tsserver":                   "typescript",
+	"marksman":                   "markdown",
 }
 
 // LSPServerInfo describes a known LSP server for auto-detection.
@@ -31,6 +32,7 @@ var KnownLSPServers = map[string][]LSPServerInfo{
 	},
 	"c":          {{Command: "clangd", Priority: 0, InstallHint: "apt install clangd / brew install llvm"}},
 	"typescript": {{Command: "typescript-language-server", Args: []string{"--stdio"}, Priority: 0, InstallHint: "npm install -g typescript-language-server typescript"}},
+	"markdown":   {{Command: "marksman", Priority: 0, InstallHint: "snap install marksman / github.com/artempyanykh/marksman/releases"}},
 }
 
 // ConfigFileLanguages maps config filenames (dot-files) to the language ID
