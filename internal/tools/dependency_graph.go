@@ -59,33 +59,24 @@ func (g *dependencyGraph) addEdge(from, to string) {
 	g.edges = append(g.edges, graphEdge{From: from, To: to})
 }
 
-// mermaidID returns a safe Mermaid node identifier from a key.
-func mermaidID(key string) string {
-	// Use a deterministic short ID based on the key
-	r := strings.NewReplacer(
-		"|", "_",
-		"/", "_",
-		".", "_",
-		":", "_",
-		"-", "_",
-		" ", "_",
-		"(", "_",
-		")", "_",
-		"<", "_",
-		">", "_",
-		"[", "_",
-		"]", "_",
-		"{", "_",
-		"}", "_",
-		"#", "_",
-		"&", "_",
-		"*", "_",
-		"~", "_",
-		"\"", "_",
-		"'", "_",
-		"`", "_",
-	)
-	return "n_" + r.Replace(key)
+// mermaidIDMap assigns short, stable Mermaid node identifiers.
+type mermaidIDMap struct {
+	ids map[string]string
+	seq int
+}
+
+func newMermaidIDMap() *mermaidIDMap {
+	return &mermaidIDMap{ids: make(map[string]string)}
+}
+
+func (m *mermaidIDMap) get(key string) string {
+	if id, ok := m.ids[key]; ok {
+		return id
+	}
+	id := fmt.Sprintf("n%d", m.seq)
+	m.seq++
+	m.ids[key] = id
+	return id
 }
 
 // mermaidShape returns the mermaid node declaration with shape based on kind.
@@ -174,9 +165,18 @@ func walkOutgoing(ctx context.Context, client *lsp.Client, g *dependencyGraph, i
 		Item: item,
 	})
 	if err != nil {
-		// Not all servers support call hierarchy; just stop here
-		toolsLogger.Warn("outgoing calls failed: %v", err)
-		return nil
+		if strings.Contains(err.Error(), "code: -32601") {
+			// Server doesn't support outgoing calls natively; try synthetic fallback
+			synthetic, synthErr := syntheticOutgoingCalls(ctx, client, item)
+			if synthErr != nil {
+				toolsLogger.Warn("synthetic outgoing calls failed: %v", synthErr)
+				return nil
+			}
+			outgoing = synthetic
+		} else {
+			toolsLogger.Warn("outgoing calls failed: %v", err)
+			return nil
+		}
 	}
 
 	for _, call := range outgoing {
@@ -234,6 +234,7 @@ func renderMermaid(g *dependencyGraph, direction string) string {
 	}
 
 	var b strings.Builder
+	idMap := newMermaidIDMap()
 
 	graphDir := "TD" // top-down
 	if direction == "incoming" {
@@ -244,7 +245,7 @@ func renderMermaid(g *dependencyGraph, direction string) string {
 
 	// Declare nodes
 	for key, node := range g.nodes {
-		id := mermaidID(key)
+		id := idMap.get(key)
 		label := nodeLabel(node)
 		b.WriteString(mermaidShape(id, label, node.Kind))
 		b.WriteString("\n")
@@ -254,8 +255,8 @@ func renderMermaid(g *dependencyGraph, direction string) string {
 
 	// Declare edges
 	for _, edge := range g.edges {
-		fromID := mermaidID(edge.From)
-		toID := mermaidID(edge.To)
+		fromID := idMap.get(edge.From)
+		toID := idMap.get(edge.To)
 		b.WriteString(fmt.Sprintf("    %s --> %s\n", fromID, toID))
 	}
 

@@ -13,13 +13,7 @@ At: L3:C3, L13:C18
 7|  SharedConstant,
 8|  SharedEnum
 ...
-12|export function AnotherConsumerFunction(): void {
 13|  const result = SharedFunction();
-14|  console.log(`Result from shared function: ${result}`);
-15|
-16|  // Using SharedClass differently
-17|  const instance = new SharedClass("another instance");
-18|
 
 
 consumer.ts

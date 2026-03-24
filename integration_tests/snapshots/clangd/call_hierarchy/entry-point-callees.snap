@@ -1,3 +1,11 @@
 Outgoing calls from: entryPoint (Function)
 
-No outgoing calls found.
+1. middleFunction (Function)
+   File: src/callchain.cpp
+   Range: L8:C1 - L11:C2
+   Call sites: 1 [L14:C23]
+
+2. endl (Function)
+   File: ../../../../../../../../../../usr/include/c++/12/ostream
+   Range: L687:C5 - L689:C50
+   Call sites: 1 [L15:C30]

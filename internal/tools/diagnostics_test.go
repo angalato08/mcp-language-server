@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/angalato08/mcp-language-server/internal/lsp"
@@ -483,6 +484,74 @@ func TestConvertDiagnostic_DeprecatedTag(t *testing.T) {
 	}
 	if len(jd.Tags) != 1 || jd.Tags[0] != "deprecated" {
 		t.Errorf("Tags: got %v, want [deprecated]", jd.Tags)
+	}
+}
+
+func TestJSONDiagnosticsResult_IndexingTrue(t *testing.T) {
+	result := JSONDiagnosticsResult{
+		Files:    []JSONFileDiagnostics{},
+		Total:    0,
+		Indexing: true,
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	got := string(b)
+	if !strings.Contains(got, `"indexing":true`) {
+		t.Errorf("expected indexing:true in output, got %s", got)
+	}
+}
+
+func TestJSONDiagnosticsResult_IndexingFalseOmitted(t *testing.T) {
+	result := JSONDiagnosticsResult{
+		Files: []JSONFileDiagnostics{},
+		Total: 0,
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	got := string(b)
+	if strings.Contains(got, "indexing") {
+		t.Errorf("expected no indexing field when false, got %s", got)
+	}
+}
+
+func TestJSONDiagnosticDiffResult_IndexingTrue(t *testing.T) {
+	result := JSONDiagnosticDiffResult{
+		Files:    []JSONFileDiagnosticDiff{},
+		Indexing: true,
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	got := string(b)
+	if !strings.Contains(got, `"indexing":true`) {
+		t.Errorf("expected indexing:true in output, got %s", got)
+	}
+}
+
+func TestJSONDiagnosticDiffResult_IndexingFalseOmitted(t *testing.T) {
+	result := JSONDiagnosticDiffResult{
+		Files: []JSONFileDiagnosticDiff{},
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+
+	got := string(b)
+	if strings.Contains(got, "indexing") {
+		t.Errorf("expected no indexing field when false, got %s", got)
 	}
 }
 

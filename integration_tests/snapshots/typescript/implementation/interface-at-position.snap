@@ -25,29 +25,9 @@ Range: L15:C1 - L33:C2
 
 
 File: another_consumer.ts
-Range: L12:C1 - L35:C2
+Range: L20:C1 - L23:C4
 
-12|export function AnotherConsumerFunction(): void {
-13|  const result = SharedFunction();
-14|  console.log(`Result from shared function: ${result}`);
-15|
-16|  // Using SharedClass differently
-17|  const instance = new SharedClass("another instance");
-18|
-19|  // Using SharedInterface
 20|  const iface: SharedInterface = {
 21|    getName: () => "custom implementation",
 22|    getValue: () => 100
 23|  };
-24|
-25|  // Using SharedType
-26|  const mixedArray: SharedType[] = ["string", 42, "another"];
-27|
-28|  // Using SharedConstant
-29|  const prefixed = `PREFIX_${SharedConstant}`;
-30|
-31|  // Using SharedEnum
-32|  const enumValues = [SharedEnum.ONE, SharedEnum.TWO, SharedEnum.THREE];
-33|
-34|  console.log(instance, iface, mixedArray, prefixed, enumValues);
-35|}

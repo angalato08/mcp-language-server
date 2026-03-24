@@ -59,7 +59,7 @@ func FindImplementation(ctx context.Context, client *lsp.Client, symbolName stri
 
 		for _, implLoc := range locations {
 			banner := "---\n\n"
-			definition, finalLoc, err := GetFullDefinition(ctx, client, implLoc)
+			definition, finalLoc, err := GetFullDefinition(ctx, client, implLoc, symbolName)
 			if err != nil {
 				toolsLogger.Error("Error getting definition: %v", err)
 				continue
@@ -126,7 +126,7 @@ func FindImplementationAtPosition(ctx context.Context, client *lsp.Client, fileP
 	var implementations []string
 	for _, loc := range locations {
 		banner := "---\n\n"
-		definition, finalLoc, err := GetFullDefinition(ctx, client, loc)
+		definition, finalLoc, err := GetFullDefinition(ctx, client, loc, "")
 		if err != nil {
 			toolsLogger.Error("Error getting definition: %v", err)
 			continue

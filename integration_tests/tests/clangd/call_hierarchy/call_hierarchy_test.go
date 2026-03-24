@@ -67,7 +67,7 @@ func TestIncomingCalls(t *testing.T) {
 				t.Fatalf("Failed to open %s: %v", tc.file, err)
 			}
 
-			result, err := tools.GetIncomingCalls(ctx, suite.Client, filePath, tc.line, tc.column)
+			result, err := tools.GetIncomingCalls(ctx, suite.Client, filePath, tc.line, tc.column, "full")
 			if err != nil {
 				t.Fatalf("GetIncomingCalls failed: %v", err)
 			}
@@ -124,11 +124,8 @@ func TestOutgoingCalls(t *testing.T) {
 				t.Fatalf("Failed to open %s: %v", tc.file, err)
 			}
 
-			result, err := tools.GetOutgoingCalls(ctx, suite.Client, filePath, tc.line, tc.column)
+			result, err := tools.GetOutgoingCalls(ctx, suite.Client, filePath, tc.line, tc.column, "full")
 			if err != nil {
-				if strings.Contains(err.Error(), "not supported") {
-					t.Skipf("Skipping: %v", err)
-				}
 				t.Fatalf("GetOutgoingCalls failed: %v", err)
 			}
 

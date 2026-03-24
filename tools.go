@@ -24,6 +24,15 @@ func parseSeverity(s string) protocol.DiagnosticSeverity {
 	}
 }
 
+func parseSymbolKind(s string) (protocol.SymbolKind, bool) {
+	for kind, name := range protocol.TableKindMap {
+		if strings.EqualFold(name, s) {
+			return kind, true
+		}
+	}
+	return 0, false
+}
+
 func (s *mcpServer) registerTools() error {
 	coreLogger.Debug("Registering MCP tools")
 
@@ -317,6 +326,13 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithNumber("limit",
 			mcp.Description("Maximum number of references to return. Default 30. Use -1 for all."),
 		),
+		mcp.WithNumber("offset",
+			mcp.Description("Number of references to skip before returning results. Use with limit for pagination. Default 0."),
+		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'full' (default) with code context, or 'short' for a compact file:line summary."),
+			mcp.Enum("full", "short"),
+		),
 	)
 
 	s.mcpServer.AddTool(findReferencesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -325,6 +341,11 @@ func (s *mcpServer) registerTools() error {
 			return mcp.NewToolResultError("symbolName must be a string"), nil
 		}
 		limit := getInt(request.Params.Arguments, "limit", 30)
+		offset := getInt(request.Params.Arguments, "offset", 0)
+		outputFormat := "full"
+		if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+			outputFormat = v
+		}
 
 		coreLogger.Debug("Executing references for symbol: %s", symbolName)
 		clients := s.router.ActiveClients()
@@ -333,7 +354,7 @@ func (s *mcpServer) registerTools() error {
 		}
 		var lastErr error
 		for _, client := range clients {
-			text, err := tools.FindReferences(ctx, client, symbolName, limit)
+			text, err := tools.FindReferences(ctx, client, symbolName, limit, offset, outputFormat)
 			if err == nil {
 				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 			}
@@ -359,6 +380,13 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithNumber("limit",
 			mcp.Description("Maximum number of references to return. Default 30. Use -1 for all."),
 		),
+		mcp.WithNumber("offset",
+			mcp.Description("Number of references to skip before returning results. Use with limit for pagination. Default 0."),
+		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'full' (default) with code context, or 'short' for a compact file:line summary."),
+			mcp.Enum("full", "short"),
+		),
 	)
 
 	s.mcpServer.AddTool(getReferencesTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -370,13 +398,18 @@ func (s *mcpServer) registerTools() error {
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
 		limit := getInt(request.Params.Arguments, "limit", 30)
+		offset := getInt(request.Params.Arguments, "offset", 0)
+		outputFormat := "full"
+		if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+			outputFormat = v
+		}
 
 		coreLogger.Debug("Executing get_references for file: %s line: %d column: %d", filePath, line, column)
 		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		text, err := tools.FindReferencesAtPosition(ctx, client, filePath, line, column, limit)
+		text, err := tools.FindReferencesAtPosition(ctx, client, filePath, line, column, limit, offset, outputFormat)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to find references: %v", err)), nil
 		}
@@ -733,6 +766,119 @@ func (s *mcpServer) registerTools() error {
 		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 	})
 
+	batchHoverTool := mcp.NewTool("batch_hover",
+		mcp.WithDescription("Get hover information (types, documentation) for multiple positions in a single file. More efficient than calling hover repeatedly."),
+		mcp.WithString("filePath", mcp.Required(), mcp.Description("The path to the file")),
+		mcp.WithArray("positions", mcp.Required(),
+			mcp.Description("Array of positions to hover on"),
+			mcp.Items(map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"line":   map[string]any{"type": "number", "description": "Line number (1-indexed)"},
+					"column": map[string]any{"type": "number", "description": "Column number (1-indexed)"},
+				},
+				"required": []string{"line", "column"},
+			}),
+		),
+	)
+
+	s.mcpServer.AddTool(batchHoverTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		filePath = tools.ResolveFilePath(filePath)
+
+		positionsRaw, ok := request.Params.Arguments["positions"].([]interface{})
+		if !ok {
+			return mcp.NewToolResultError("positions must be an array"), nil
+		}
+
+		if len(positionsRaw) == 0 {
+			return mcp.NewToolResultText("No positions provided"), nil
+		}
+
+		positions := make([]tools.HoverPosition, 0, len(positionsRaw))
+		for _, p := range positionsRaw {
+			posMap, ok := p.(map[string]interface{})
+			if !ok {
+				return mcp.NewToolResultError("each position must be an object with line and column"), nil
+			}
+			line := getInt(posMap, "line", 0)
+			column := getInt(posMap, "column", 0)
+			if line <= 0 || column <= 0 {
+				return mcp.NewToolResultError("line and column must be positive integers"), nil
+			}
+			positions = append(positions, tools.HoverPosition{Line: line, Column: column})
+		}
+
+		coreLogger.Debug("Executing batch_hover for file: %s with %d positions", filePath, len(positions))
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		results, err := tools.BatchHoverInfo(ctx, client, filePath, positions)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get batch hover information: %v", err)), nil
+		}
+
+		text := tools.FormatBatchHoverResults(filePath, results)
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
+	apiOverviewTool := mcp.NewTool("api_overview",
+		mcp.WithDescription("Get signatures and documentation for all symbols in a file. Combines document_symbols with hover to provide a complete API surface view in one call."),
+		mcp.WithString("filePath", mcp.Required(), mcp.Description("Path to the file")),
+		mcp.WithArray("symbolKinds",
+			mcp.Description("Filter to specific symbol kinds (e.g. 'Function', 'Method', 'Class'). Default: all top-level symbols."),
+			mcp.Items(map[string]any{"type": "string"}),
+		),
+		mcp.WithBoolean("includeChildren",
+			mcp.Description("Include children of top-level symbols (methods, fields). Default true."),
+			mcp.DefaultBool(true),
+		),
+	)
+
+	s.mcpServer.AddTool(apiOverviewTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		filePath, ok := request.Params.Arguments["filePath"].(string)
+		if !ok {
+			return mcp.NewToolResultError("filePath must be a string"), nil
+		}
+		filePath = tools.ResolveFilePath(filePath)
+
+		var symbolKinds []protocol.SymbolKind
+		if kindsRaw, ok := request.Params.Arguments["symbolKinds"].([]interface{}); ok {
+			for _, k := range kindsRaw {
+				kindStr, ok := k.(string)
+				if !ok {
+					continue
+				}
+				kind, valid := parseSymbolKind(kindStr)
+				if valid {
+					symbolKinds = append(symbolKinds, kind)
+				}
+			}
+		}
+
+		includeChildren := true
+		if v, ok := request.Params.Arguments["includeChildren"].(bool); ok {
+			includeChildren = v
+		}
+
+		coreLogger.Debug("Executing api_overview for file: %s", filePath)
+		client, err := s.router.ClientForFile(ctx, filePath)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		text, err := tools.GetAPIOverview(ctx, client, filePath, symbolKinds, includeChildren)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get API overview: %v", err)), nil
+		}
+		return mcp.NewToolResultText(tools.TrimResponse(text)), nil
+	})
+
 	renameSymbolTool := mcp.NewTool("rename_symbol",
 		mcp.WithDescription("Rename a symbol (variable, function, class, etc.) at the specified position and update all references throughout the codebase."),
 		mcp.WithString("filePath",
@@ -814,6 +960,9 @@ func (s *mcpServer) registerTools() error {
 		mcp.WithNumber("limit",
 			mcp.Description("Maximum number of symbols to return. Default 20. Use -1 for all."),
 		),
+		mcp.WithNumber("offset",
+			mcp.Description("Number of symbols to skip before returning results. Use with limit for pagination. Default 0."),
+		),
 	)
 
 	s.mcpServer.AddTool(workspaceSymbolsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -822,6 +971,7 @@ func (s *mcpServer) registerTools() error {
 			return mcp.NewToolResultError("query must be a string"), nil
 		}
 		limit := getInt(request.Params.Arguments, "limit", 20)
+		offset := getInt(request.Params.Arguments, "offset", 0)
 
 		coreLogger.Debug("Executing workspace_symbols for query: %s", query)
 		clients := s.router.ActiveClients()
@@ -830,7 +980,7 @@ func (s *mcpServer) registerTools() error {
 		}
 		var lastErr error
 		for _, client := range clients {
-			text, err := tools.SearchWorkspaceSymbols(ctx, client, query, limit)
+			text, err := tools.SearchWorkspaceSymbols(ctx, client, query, limit, offset)
 			if err == nil {
 				return mcp.NewToolResultText(tools.TrimResponse(text)), nil
 			}
@@ -1021,6 +1171,10 @@ func (s *mcpServer) registerTools() error {
 			mcp.Required(),
 			mcp.Description("The column number (1-indexed)"),
 		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'full' (default) with detailed info, or 'short' for a compact one-line-per-caller summary."),
+			mcp.Enum("full", "short"),
+		),
 	)
 
 	s.mcpServer.AddTool(incomingCallsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1031,13 +1185,17 @@ func (s *mcpServer) registerTools() error {
 		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
+		outputFormat := "full"
+		if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+			outputFormat = v
+		}
 
 		coreLogger.Debug("Executing incoming_calls for file: %s line: %d column: %d", filePath, line, column)
 		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		text, err := tools.GetIncomingCalls(ctx, client, filePath, line, column)
+		text, err := tools.GetIncomingCalls(ctx, client, filePath, line, column, outputFormat)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get incoming calls: %v", err)), nil
 		}
@@ -1058,6 +1216,10 @@ func (s *mcpServer) registerTools() error {
 			mcp.Required(),
 			mcp.Description("The column number (1-indexed)"),
 		),
+		mcp.WithString("outputFormat",
+			mcp.Description("Output format: 'full' (default) with detailed info, or 'short' for a compact one-line-per-callee summary."),
+			mcp.Enum("full", "short"),
+		),
 	)
 
 	s.mcpServer.AddTool(outgoingCallsTool, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -1068,13 +1230,17 @@ func (s *mcpServer) registerTools() error {
 		filePath = tools.ResolveFilePath(filePath)
 		line := getInt(request.Params.Arguments, "line", 0)
 		column := getInt(request.Params.Arguments, "column", 0)
+		outputFormat := "full"
+		if v, ok := request.Params.Arguments["outputFormat"].(string); ok && v != "" {
+			outputFormat = v
+		}
 
 		coreLogger.Debug("Executing outgoing_calls for file: %s line: %d column: %d", filePath, line, column)
 		client, err := s.router.ClientForFile(ctx, filePath)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		text, err := tools.GetOutgoingCalls(ctx, client, filePath, line, column)
+		text, err := tools.GetOutgoingCalls(ctx, client, filePath, line, column, outputFormat)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("failed to get outgoing calls: %v", err)), nil
 		}

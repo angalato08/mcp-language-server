@@ -11,7 +11,7 @@ import (
 
 // GetIncomingCalls finds all callers of the symbol at the given position.
 // Returns a formatted list of functions/methods that call the target.
-func GetIncomingCalls(ctx context.Context, client *lsp.Client, filePath string, line, column int) (string, error) {
+func GetIncomingCalls(ctx context.Context, client *lsp.Client, filePath string, line, column int, outputFormat string) (string, error) {
 	items, err := prepareCallHierarchy(ctx, client, filePath, line, column)
 	if err != nil {
 		return "", err
@@ -41,6 +41,11 @@ func GetIncomingCalls(ctx context.Context, client *lsp.Client, filePath string, 
 			continue
 		}
 
+		if outputFormat == "short" {
+			result.WriteString(formatIncomingCallsShortBody(incoming))
+			continue
+		}
+
 		for i, call := range incoming {
 			result.WriteString(formatCallHierarchyItem(i+1, call.From, call.FromRanges))
 		}
@@ -51,7 +56,7 @@ func GetIncomingCalls(ctx context.Context, client *lsp.Client, filePath string, 
 
 // GetOutgoingCalls finds all functions/methods called by the symbol at the given position.
 // Returns a formatted list of functions/methods that the target calls.
-func GetOutgoingCalls(ctx context.Context, client *lsp.Client, filePath string, line, column int) (string, error) {
+func GetOutgoingCalls(ctx context.Context, client *lsp.Client, filePath string, line, column int, outputFormat string) (string, error) {
 	items, err := prepareCallHierarchy(ctx, client, filePath, line, column)
 	if err != nil {
 		return "", err
@@ -71,13 +76,24 @@ func GetOutgoingCalls(ctx context.Context, client *lsp.Client, filePath string, 
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "code: -32601") {
-				return "", fmt.Errorf("outgoing_calls is not supported by this language server (e.g. clangd does not implement callHierarchy/outgoingCalls)")
+				// Server doesn't support outgoing calls natively; try synthetic fallback
+				synthetic, synthErr := syntheticOutgoingCalls(ctx, client, item)
+				if synthErr != nil {
+					return "", fmt.Errorf("outgoing_calls not supported natively, synthetic fallback failed: %v", synthErr)
+				}
+				outgoing = synthetic
+			} else {
+				return "", fmt.Errorf("failed to get outgoing calls: %v", err)
 			}
-			return "", fmt.Errorf("failed to get outgoing calls: %v", err)
 		}
 
 		if len(outgoing) == 0 {
 			result.WriteString("No outgoing calls found.\n")
+			continue
+		}
+
+		if outputFormat == "short" {
+			result.WriteString(formatOutgoingCallsShortBody(outgoing))
 			continue
 		}
 
@@ -147,5 +163,41 @@ func formatCallHierarchyItem(index int, item protocol.CallHierarchyItem, callSit
 	}
 
 	b.WriteString("\n")
+	return b.String()
+}
+
+func formatIncomingCallsShortBody(calls []protocol.CallHierarchyIncomingCall) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%d callers:\n", len(calls)))
+	for _, call := range calls {
+		kind := protocol.TableKindMap[call.From.Kind]
+		if kind == "" {
+			kind = "Unknown"
+		}
+		filePath := RelativePath(strings.TrimPrefix(string(call.From.URI), "file://"))
+		lineStrs := make([]string, len(call.FromRanges))
+		for i, r := range call.FromRanges {
+			lineStrs[i] = fmt.Sprintf("L%d", r.Start.Line+1)
+		}
+		b.WriteString(fmt.Sprintf("  %s (%s) — %s:%s\n", call.From.Name, kind, filePath, strings.Join(lineStrs, ", ")))
+	}
+	return b.String()
+}
+
+func formatOutgoingCallsShortBody(calls []protocol.CallHierarchyOutgoingCall) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%d callees:\n", len(calls)))
+	for _, call := range calls {
+		kind := protocol.TableKindMap[call.To.Kind]
+		if kind == "" {
+			kind = "Unknown"
+		}
+		filePath := RelativePath(strings.TrimPrefix(string(call.To.URI), "file://"))
+		lineStrs := make([]string, len(call.FromRanges))
+		for i, r := range call.FromRanges {
+			lineStrs[i] = fmt.Sprintf("L%d", r.Start.Line+1)
+		}
+		b.WriteString(fmt.Sprintf("  %s (%s) — %s:%s\n", call.To.Name, kind, filePath, strings.Join(lineStrs, ", ")))
+	}
 	return b.String()
 }

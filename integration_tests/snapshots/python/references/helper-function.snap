@@ -16,6 +16,8 @@ At: L6:C5, L28:C16, L50:C14
 10|
 11|class AnotherImplementation:
 ...
+18|    def do_something(self) -> str:
+...
 23|        """
 24|        # Get the value from shared class
 25|        value = self.shared.get_value()

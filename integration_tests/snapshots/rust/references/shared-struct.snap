@@ -58,8 +58,6 @@ At: L54:C6, L56:C9, L70:C26, L55:C31
 57|            name: String::from(name),
 58|        }
 59|    }
-60|
-61|    pub fn method(&self) -> String {
 ...
 70|impl SharedInterface for SharedStruct {
 71|    fn get_name(&self) -> String {

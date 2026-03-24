@@ -69,7 +69,7 @@ func matchSymbol(symbol protocol.WorkspaceSymbolResult, query string) bool {
 }
 
 // Gets the full code block surrounding the start of the input location
-func GetFullDefinition(ctx context.Context, client *lsp.Client, startLocation protocol.Location) (string, protocol.Location, error) {
+func GetFullDefinition(ctx context.Context, client *lsp.Client, startLocation protocol.Location, symbolName string) (string, protocol.Location, error) {
 	// Ensure the file is opened so the LSP server can provide document symbols
 	filePath, err := url.PathUnescape(strings.TrimPrefix(string(startLocation.URI), "file://"))
 	if err != nil {
@@ -104,25 +104,70 @@ func GetFullDefinition(ctx context.Context, client *lsp.Client, startLocation pr
 	searchSymbols = func(symbols []protocol.DocumentSymbolResult) bool {
 		for _, sym := range symbols {
 			if containsPosition(sym.GetRange(), startLocation.Range.Start) {
+				// Check children first for a more specific match
+				if ds, ok := sym.(*protocol.DocumentSymbol); ok && len(ds.Children) > 0 {
+					childSymbols := make([]protocol.DocumentSymbolResult, len(ds.Children))
+					for i := range ds.Children {
+						childSymbols[i] = &ds.Children[i]
+					}
+					if searchSymbols(childSymbols) {
+						return true // Child matched — more specific
+					}
+				}
+				// No more specific child — use this symbol
 				symbolRange = sym.GetRange()
 				found = true
 				return true
-			}
-			// Handle nested symbols if it's a DocumentSymbol
-			if ds, ok := sym.(*protocol.DocumentSymbol); ok && len(ds.Children) > 0 {
-				childSymbols := make([]protocol.DocumentSymbolResult, len(ds.Children))
-				for i := range ds.Children {
-					childSymbols[i] = &ds.Children[i]
-				}
-				if searchSymbols(childSymbols) {
-					return true
-				}
 			}
 		}
 		return false
 	}
 
 	found = searchSymbols(symbols)
+
+	// When symbolName is provided and the matched symbol is a container with
+	// children, try to narrow down to a child whose Name matches symbolName.
+	if found && symbolName != "" {
+		var refineSearch func([]protocol.DocumentSymbolResult) bool
+		refineSearch = func(syms []protocol.DocumentSymbolResult) bool {
+			for _, sym := range syms {
+				ds, ok := sym.(*protocol.DocumentSymbol)
+				if !ok {
+					continue
+				}
+				if ds.Name == symbolName {
+					symbolRange = ds.Range
+					return true
+				}
+				if len(ds.Children) > 0 {
+					childSymbols := make([]protocol.DocumentSymbolResult, len(ds.Children))
+					for i := range ds.Children {
+						childSymbols[i] = &ds.Children[i]
+					}
+					if refineSearch(childSymbols) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+
+		// Only refine if the current match is a container with children
+		for _, sym := range symbols {
+			ds, ok := sym.(*protocol.DocumentSymbol)
+			if !ok {
+				continue
+			}
+			if ds.Range == symbolRange && len(ds.Children) > 0 {
+				childSymbols := make([]protocol.DocumentSymbolResult, len(ds.Children))
+				for i := range ds.Children {
+					childSymbols[i] = &ds.Children[i]
+				}
+				refineSearch(childSymbols)
+				break
+			}
+		}
+	}
 
 	if found {
 		// Convert URI to filesystem path
@@ -212,7 +257,7 @@ func GetLineRangesToDisplay(ctx context.Context, client *lsp.Client, locations [
 	// For each location, get its container and add relevant lines
 	for _, loc := range locations {
 		// Use GetFullDefinition to find container
-		_, containerLoc, err := GetFullDefinition(ctx, client, loc)
+		_, containerLoc, err := GetFullDefinition(ctx, client, loc, "")
 		if err != nil {
 			// If container not found, just use the location's line
 			refLine := int(loc.Range.Start.Line)

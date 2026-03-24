@@ -408,35 +408,90 @@ func TestRelativePath(t *testing.T) {
 	}
 }
 
-func TestTrimResponse(t *testing.T) {
+func TestEstimateTokens(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name     string
 		input    string
-		expected string
+		expected int
 	}{
-		{
-			name:     "Short response unchanged",
-			input:    "hello world",
-			expected: "hello world",
-		},
-		{
-			name:     "Exactly at limit unchanged",
-			input:    strings.Repeat("a", maxResponseSize),
-			expected: strings.Repeat("a", maxResponseSize),
-		},
-		{
-			name:     "Over limit gets truncated",
-			input:    strings.Repeat("a", maxResponseSize+100),
-			expected: strings.Repeat("a", maxResponseSize) + "\n... (response truncated)",
-		},
+		{name: "Empty string", input: "", expected: 0},
+		{name: "7 chars", input: "abcdefg", expected: 2},
+		{name: "35 chars", input: strings.Repeat("a", 35), expected: 10},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			result := TrimResponse(tc.input)
-			assert.Equal(t, tc.expected, result)
+			assert.Equal(t, tc.expected, EstimateTokens(tc.input))
 		})
 	}
+}
+
+func TestTruncateResponse(t *testing.T) {
+	t.Parallel()
+
+	// Save and restore maxResponseSize
+	origMax := maxResponseSize
+	defer func() { maxResponseSize = origMax }()
+	maxResponseSize = 100
+
+	t.Run("Short response unchanged", func(t *testing.T) {
+		result := TruncateResponse("hello world")
+		assert.Equal(t, "hello world", result)
+	})
+
+	t.Run("Exactly at limit unchanged", func(t *testing.T) {
+		input := strings.Repeat("a", 100)
+		result := TruncateResponse(input)
+		assert.Equal(t, input, result)
+	})
+
+	t.Run("Cuts at line boundary", func(t *testing.T) {
+		// 90 chars + newline + 20 chars = 111 chars, over limit of 100
+		input := strings.Repeat("a", 90) + "\n" + strings.Repeat("b", 20)
+		result := TruncateResponse(input)
+		assert.True(t, strings.HasPrefix(result, strings.Repeat("a", 90)))
+		assert.Contains(t, result, "... (truncated")
+		assert.NotContains(t, result, "bbb")
+	})
+
+	t.Run("Prefers block boundary over line boundary", func(t *testing.T) {
+		// Block boundary at position 60 (>50% of 100), line boundary at 80
+		input := strings.Repeat("a", 59) + "\n---\n" + strings.Repeat("b", 16) + "\n" + strings.Repeat("c", 30)
+		result := TruncateResponse(input)
+		// Should cut at \n---\n (position 59), not the later \n
+		assert.True(t, strings.HasPrefix(result, strings.Repeat("a", 59)))
+		assert.Contains(t, result, "... (truncated")
+	})
+
+	t.Run("Skips block boundary if too early", func(t *testing.T) {
+		// Block boundary at position 20 (<50% of 100), line boundary at 90
+		input := strings.Repeat("a", 19) + "\n---\n" + strings.Repeat("b", 66) + "\n" + strings.Repeat("c", 20)
+		result := TruncateResponse(input)
+		// Should skip block boundary (too early) and use line boundary at 90
+		assert.True(t, len(result) > 50, "Should use line boundary, not block boundary")
+		assert.Contains(t, result, "... (truncated")
+	})
+
+	t.Run("Falls back to char cut when no newline", func(t *testing.T) {
+		input := strings.Repeat("a", 200)
+		result := TruncateResponse(input)
+		assert.Contains(t, result, "... (truncated")
+		// First 100 chars preserved
+		assert.True(t, strings.HasPrefix(result, strings.Repeat("a", 100)))
+	})
+
+	t.Run("Footer contains token estimates", func(t *testing.T) {
+		input := strings.Repeat("a", 90) + "\n" + strings.Repeat("b", 20)
+		result := TruncateResponse(input)
+		assert.Contains(t, result, "estimated tokens")
+		assert.Contains(t, result, "chars")
+	})
+}
+
+func TestTrimResponse(t *testing.T) {
+	t.Parallel()
+	// TrimResponse delegates to TruncateResponse
+	result := TrimResponse("hello")
+	assert.Equal(t, "hello", result)
 }

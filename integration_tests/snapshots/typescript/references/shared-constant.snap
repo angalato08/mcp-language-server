@@ -16,17 +16,7 @@ At: L7:C3, L29:C30
 11|// AnotherConsumerFunction uses SharedFunction in a different way
 12|export function AnotherConsumerFunction(): void {
 ...
-24|
-25|  // Using SharedType
-26|  const mixedArray: SharedType[] = ["string", 42, "another"];
-27|
-28|  // Using SharedConstant
 29|  const prefixed = `PREFIX_${SharedConstant}`;
-30|
-31|  // Using SharedEnum
-32|  const enumValues = [SharedEnum.ONE, SharedEnum.TWO, SharedEnum.THREE];
-33|
-34|  console.log(instance, iface, mixedArray, prefixed, enumValues);
 
 
 consumer.ts

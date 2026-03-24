@@ -1,3 +1,6 @@
 Outgoing calls from: middleFunction (Function)
 
-No outgoing calls found.
+1. leafFunction (Function)
+   File: src/callchain.cpp
+   Range: L4:C1 - L6:C2
+   Call sites: 1 [L9:C26]

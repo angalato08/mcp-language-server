@@ -15,19 +15,8 @@ At: L6:C3, L26:C21
  9|} from './helper';
 10|
 11|// AnotherConsumerFunction uses SharedFunction in a different way
-12|export function AnotherConsumerFunction(): void {
 ...
-21|    getName: () => "custom implementation",
-22|    getValue: () => 100
-23|  };
-24|
-25|  // Using SharedType
 26|  const mixedArray: SharedType[] = ["string", 42, "another"];
-27|
-28|  // Using SharedConstant
-29|  const prefixed = `PREFIX_${SharedConstant}`;
-30|
-31|  // Using SharedEnum
 
 
 consumer.ts
@@ -45,17 +34,6 @@ At: L6:C3, L26:C16, L27:C19
  9|} from './helper';
 10|
 11|// ConsumerFunction uses SharedFunction
-12|export function ConsumerFunction(): void {
 ...
-21|  const iface: SharedInterface = instance;
-22|  console.log(iface.getName());
-23|  console.log(iface.getValue());
-24|
-25|  // Using SharedType
 26|  const value: SharedType = "string value";
 27|  const numValue: SharedType = 42;
-28|  console.log(value, numValue);
-29|
-30|  // Using SharedConstant
-31|  console.log(SharedConstant);
-32|

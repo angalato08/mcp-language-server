@@ -43,15 +43,48 @@ func RelativePath(absPath string) string {
 	return rel
 }
 
-// TrimResponse truncates a response string to maxResponseSize characters,
-// appending a notice if truncation occurs.
-const maxResponseSize = 8000
+// maxResponseSize is the character limit for tool responses.
+// Override with MCP_MAX_RESPONSE_SIZE environment variable.
+var maxResponseSize = 20000
 
-func TrimResponse(response string) string {
+func init() {
+	if envVal := os.Getenv("MCP_MAX_RESPONSE_SIZE"); envVal != "" {
+		if val, err := strconv.Atoi(envVal); err == nil && val > 0 {
+			maxResponseSize = val
+		}
+	}
+}
+
+// EstimateTokens returns a rough token count using len/3.5 heuristic.
+func EstimateTokens(s string) int {
+	return (len(s)*2 + 6) / 7
+}
+
+// TruncateResponse truncates a response at logical boundaries (block separators
+// or newlines) and appends an informative footer with token estimates.
+func TruncateResponse(response string) string {
 	if len(response) <= maxResponseSize {
 		return response
 	}
-	return response[:maxResponseSize] + "\n... (response truncated)"
+
+	cutoff := maxResponseSize
+	// Prefer block boundary (---) if it preserves at least half
+	if blockBound := strings.LastIndex(response[:cutoff], "\n---\n"); blockBound > cutoff/2 {
+		cutoff = blockBound
+	} else if lineBound := strings.LastIndex(response[:cutoff], "\n"); lineBound > 0 {
+		cutoff = lineBound
+	}
+
+	truncated := response[:cutoff]
+	return truncated + fmt.Sprintf(
+		"\n\n... (truncated — showed ~%d of ~%d estimated tokens, %d of %d chars)",
+		EstimateTokens(truncated), EstimateTokens(response), cutoff, len(response),
+	)
+}
+
+// TrimResponse delegates to TruncateResponse for backward compatibility.
+func TrimResponse(response string) string {
+	return TruncateResponse(response)
 }
 
 func ExtractTextFromLocation(loc protocol.Location) (string, error) {

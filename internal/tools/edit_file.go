@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/angalato08/mcp-language-server/internal/lsp"
-	"github.com/angalato08/mcp-language-server/internal/protocol"
-	"github.com/angalato08/mcp-language-server/internal/utilities"
 )
 
 type TextEdit struct {
@@ -25,61 +23,87 @@ func ApplyTextEdits(ctx context.Context, client *lsp.Client, filePath string, ed
 		return "", fmt.Errorf("could not open file: %v", err)
 	}
 
-	// Create a sorted copy of edits for reporting
-	sortedEdits := make([]TextEdit, len(edits))
-	copy(sortedEdits, edits)
-	sort.Slice(sortedEdits, func(i, j int) bool {
-		return sortedEdits[i].StartLine < sortedEdits[j].StartLine
-	})
-
-	// Track lines added and removed for sorted edits
-	linesRemovedSorted := 0
-	linesAddedSorted := 0
-	for _, edit := range sortedEdits {
-		// Calculate lines removed: end - start + 1
-		removedLineCount := edit.EndLine - edit.StartLine + 1
-		linesRemovedSorted += removedLineCount
-
-		// Calculate lines added: count newlines in the replacement text + 1
-		addedLineCount := 1
-		if edit.NewText != "" {
-			addedLineCount = strings.Count(edit.NewText, "\n") + 1
-		} else if edit.NewText == "" {
-			addedLineCount = 0
-		}
-		linesAddedSorted += addedLineCount
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %v", err)
 	}
 
-	// Sort edits by line number in descending order to process from bottom to top
-	// This way line numbers don't shift under us as we make edits
+	lineEnding := "\n"
+	if bytes.Contains(content, []byte("\r\n")) {
+		lineEnding = "\r\n"
+	}
+	endsWithNewline := len(content) > 0 && bytes.HasSuffix(content, []byte(lineEnding))
+
+	lines := strings.Split(string(content), lineEnding)
+
+	// Sort edits by start line descending (bottom to top)
+	// so earlier edits don't shift line numbers for later ones
 	sort.Slice(edits, func(i, j int) bool {
 		return edits[i].StartLine > edits[j].StartLine
 	})
 
-	// Convert from input format to protocol.TextEdit
-	var textEdits []protocol.TextEdit
+	// Validate no overlapping edits (already sorted descending)
+	for i := 1; i < len(edits); i++ {
+		if edits[i].EndLine >= edits[i-1].StartLine {
+			return "", fmt.Errorf("overlapping edits: lines %d-%d and lines %d-%d",
+				edits[i].StartLine, edits[i].EndLine, edits[i-1].StartLine, edits[i-1].EndLine)
+		}
+	}
+
+	totalRemoved := 0
+	totalAdded := 0
+
 	for _, edit := range edits {
-		// Get the range covering the requested lines
-		rng, err := getRange(edit.StartLine, edit.EndLine, filePath)
-		if err != nil {
-			return "", fmt.Errorf("invalid position: %v", err)
+		if edit.StartLine < 1 {
+			return "", fmt.Errorf("start line must be >= 1, got %d", edit.StartLine)
 		}
 
-		// Always do a replacement
-		textEdits = append(textEdits, protocol.TextEdit{
-			Range:   rng,
-			NewText: edit.NewText,
-		})
+		startIdx := edit.StartLine - 1
+		endIdx := edit.EndLine - 1
+
+		if startIdx >= len(lines) {
+			startIdx = len(lines) - 1
+		}
+		if endIdx >= len(lines) {
+			endIdx = len(lines) - 1
+		}
+		if endIdx < startIdx {
+			endIdx = startIdx
+		}
+
+		removedCount := endIdx - startIdx + 1
+		totalRemoved += removedCount
+
+		var newLines []string
+		if edit.NewText != "" {
+			newLines = strings.Split(edit.NewText, "\n")
+		}
+		totalAdded += len(newLines)
+
+		// Splice: lines[:startIdx] + newLines + lines[endIdx+1:]
+		result := make([]string, 0, len(lines)-removedCount+len(newLines))
+		result = append(result, lines[:startIdx]...)
+		result = append(result, newLines...)
+		if endIdx+1 < len(lines) {
+			result = append(result, lines[endIdx+1:]...)
+		}
+		lines = result
 	}
 
-	edit := protocol.WorkspaceEdit{
-		Changes: map[protocol.DocumentUri][]protocol.TextEdit{
-			protocol.DocumentUri("file://" + filePath): textEdits,
-		},
+	// Rebuild file content
+	var buf strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			buf.WriteString(lineEnding)
+		}
+		buf.WriteString(line)
+	}
+	if endsWithNewline && !strings.HasSuffix(buf.String(), lineEnding) {
+		buf.WriteString(lineEnding)
 	}
 
-	if err := utilities.ApplyWorkspaceEdit(edit); err != nil {
-		return "", fmt.Errorf("failed to apply text edits: %v", err)
+	if err := os.WriteFile(filePath, []byte(buf.String()), 0644); err != nil {
+		return "", fmt.Errorf("failed to write file: %v", err)
 	}
 
 	// Notify the LSP server about the change so diagnostics update
@@ -87,73 +111,5 @@ func ApplyTextEdits(ctx context.Context, client *lsp.Client, filePath string, ed
 		toolsLogger.Warn("Failed to notify LSP of text edit change: %v", err)
 	}
 
-	return fmt.Sprintf("Successfully applied text edits. %d lines removed, %d lines added.", linesRemovedSorted, linesAddedSorted), nil
-}
-
-// getRange creates a protocol.Range that covers the specified start and end lines
-func getRange(startLine, endLine int, filePath string) (protocol.Range, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return protocol.Range{}, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	// Detect line ending style
-	var lineEnding string
-	if bytes.Contains(content, []byte("\r\n")) {
-		lineEnding = "\r\n"
-	} else {
-		lineEnding = "\n"
-	}
-
-	// Split lines without the line endings
-	lines := strings.Split(string(content), lineEnding)
-
-	// Handle start line positioning
-	if startLine < 1 {
-		return protocol.Range{}, fmt.Errorf("start line must be >= 1, got %d", startLine)
-	}
-
-	// Convert to 0-based line numbers
-	startIdx := startLine - 1
-	endIdx := endLine - 1
-
-	// Handle EOF positioning
-	if startIdx >= len(lines) {
-		// For EOF, we want to point to the end of the last content-bearing line
-		lastContentLineIdx := len(lines) - 1
-		if lastContentLineIdx >= 0 && lines[lastContentLineIdx] == "" {
-			lastContentLineIdx--
-		}
-
-		if lastContentLineIdx < 0 {
-			lastContentLineIdx = 0
-		}
-
-		pos := protocol.Position{
-			Line:      uint32(lastContentLineIdx),
-			Character: uint32(len(lines[lastContentLineIdx])),
-		}
-
-		return protocol.Range{
-			Start: pos,
-			End:   pos,
-		}, nil
-	}
-
-	// Normal range handling
-	if endIdx >= len(lines) {
-		endIdx = len(lines) - 1
-	}
-
-	// Always use the full line range for consistency
-	return protocol.Range{
-		Start: protocol.Position{
-			Line:      uint32(startIdx),
-			Character: 0, // Always start at beginning of line
-		},
-		End: protocol.Position{
-			Line:      uint32(endIdx),
-			Character: uint32(len(lines[endIdx])), // Go to end of last line
-		},
-	}, nil
+	return fmt.Sprintf("Successfully applied text edits. %d lines removed, %d lines added.", totalRemoved, totalAdded), nil
 }

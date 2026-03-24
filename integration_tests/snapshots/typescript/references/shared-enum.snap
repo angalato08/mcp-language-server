@@ -16,15 +16,7 @@ At: L8:C3, L32:C23, L32:C39, L32:C55
 12|export function AnotherConsumerFunction(): void {
 13|  const result = SharedFunction();
 ...
-27|
-28|  // Using SharedConstant
-29|  const prefixed = `PREFIX_${SharedConstant}`;
-30|
-31|  // Using SharedEnum
 32|  const enumValues = [SharedEnum.ONE, SharedEnum.TWO, SharedEnum.THREE];
-33|
-34|  console.log(instance, iface, mixedArray, prefixed, enumValues);
-35|}
 
 
 consumer.ts

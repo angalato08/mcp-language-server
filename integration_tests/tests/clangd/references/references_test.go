@@ -77,7 +77,7 @@ func TestFindReferences(t *testing.T) {
 			ctx, cancel := context.WithTimeout(suite.Context, 20*time.Second)
 			defer cancel()
 
-			result, err := tools.FindReferences(ctx, suite.Client, tc.symbolName, -1)
+			result, err := tools.FindReferences(ctx, suite.Client, tc.symbolName, -1, 0, "full")
 			if err != nil {
 				t.Fatalf("Failed to find references for %s: %v. Result: %s", tc.symbolName, err, result)
 			}
@@ -144,7 +144,7 @@ func TestGetReferencesAtPosition(t *testing.T) {
 			ctx, cancel := context.WithTimeout(suite.Context, 10*time.Second)
 			defer cancel()
 
-			result, err := tools.FindReferencesAtPosition(ctx, suite.Client, absPath, tc.line, tc.column, -1)
+			result, err := tools.FindReferencesAtPosition(ctx, suite.Client, absPath, tc.line, tc.column, -1, 0, "full")
 			if err != nil {
 				t.Fatalf("Failed to get references at position: %v", err)
 			}

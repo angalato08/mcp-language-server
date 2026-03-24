@@ -45,8 +45,9 @@ type JSONFileDiagnostics struct {
 
 // JSONDiagnosticsResult is the top-level JSON result for non-diff mode.
 type JSONDiagnosticsResult struct {
-	Files []JSONFileDiagnostics `json:"files"`
-	Total int                   `json:"total"`
+	Files    []JSONFileDiagnostics `json:"files"`
+	Total    int                   `json:"total"`
+	Indexing bool                  `json:"indexing,omitempty"`
 }
 
 // JSONFileDiagnosticDiff represents diagnostic changes for a single file in JSON output.
@@ -59,7 +60,8 @@ type JSONFileDiagnosticDiff struct {
 
 // JSONDiagnosticDiffResult is the top-level JSON result for diff mode.
 type JSONDiagnosticDiffResult struct {
-	Files []JSONFileDiagnosticDiff `json:"files"`
+	Files    []JSONFileDiagnosticDiff `json:"files"`
+	Indexing bool                     `json:"indexing,omitempty"`
 }
 
 // DiagnosticFilter controls which diagnostics are included in results.
@@ -97,6 +99,16 @@ func FilterDiagnostics(diagnostics []protocol.Diagnostic, filter DiagnosticFilte
 		result = append(result, diag)
 	}
 	return result
+}
+
+// anyClientIndexing returns true if any of the given clients is still indexing.
+func anyClientIndexing(clients []*lsp.Client) bool {
+	for _, c := range clients {
+		if c.IsIndexing() {
+			return true
+		}
+	}
+	return false
 }
 
 // syncAndFetchDiagnostics syncs a file to the LSP server, waits for diagnostics,
@@ -256,6 +268,10 @@ func GetDiagnosticsForFile(ctx context.Context, client *lsp.Client, filePath str
 		totalCount,
 	)
 
+	if client.IsIndexing() {
+		fileInfo += "WARNING: Language server is still indexing. Diagnostics may be incomplete or stale.\n"
+	}
+
 	// Prepend limit notice if results were truncated
 	if limit > 0 && totalCount > limit {
 		fileInfo += fmt.Sprintf("Showing %d of %d diagnostics\n", limit, totalCount)
@@ -407,6 +423,10 @@ func GetDiagnosticDiffForFile(ctx context.Context, client *lsp.Client, filePath 
 	result := fmt.Sprintf("%s\nNew Diagnostics: %d, Resolved Diagnostics: %d\n",
 		displayPath, len(newDiags), len(resolved))
 
+	if client.IsIndexing() {
+		result += "WARNING: Language server is still indexing. Diagnostics may be incomplete or stale.\n"
+	}
+
 	if limit > 0 && totalCount > limit {
 		result += fmt.Sprintf("Showing %d of %d diagnostic changes\n", limit, totalCount)
 	}
@@ -551,7 +571,11 @@ func GetAllDiagnosticDiffs(ctx context.Context, clients []*lsp.Client, contextLi
 		return "No diagnostic changes in workspace", nil
 	}
 
-	return strings.Join(allDiffs, ""), nil
+	result := strings.Join(allDiffs, "")
+	if anyClientIndexing(clients) {
+		result = "WARNING: Language server is still indexing. Diagnostics may be incomplete or stale.\n" + result
+	}
+	return result, nil
 }
 
 // GetAllDiagnostics retrieves diagnostics for all active clients
@@ -652,7 +676,11 @@ func GetAllDiagnostics(ctx context.Context, clients []*lsp.Client, contextLines 
 		return "No diagnostics found in workspace", nil
 	}
 
-	return strings.Join(allDiagnostics, ""), nil
+	result := strings.Join(allDiagnostics, "")
+	if anyClientIndexing(clients) {
+		result = "WARNING: Language server is still indexing. Diagnostics may be incomplete or stale.\n" + result
+	}
+	return result, nil
 }
 
 // GetDiagnosticsForFiles retrieves diagnostics for multiple files, routing each
@@ -728,7 +756,8 @@ func GetDiagnosticsForFileJSON(ctx context.Context, client *lsp.Client, filePath
 			Count:       totalCount,
 			Truncated:   truncated,
 		}},
-		Total: totalCount,
+		Total:    totalCount,
+		Indexing: client.IsIndexing(),
 	}
 
 	b, err := json.Marshal(result)
@@ -791,6 +820,7 @@ func GetDiagnosticDiffForFileJSON(ctx context.Context, client *lsp.Client, fileP
 			New:      jsonNew,
 			Resolved: jsonResolved,
 		}},
+		Indexing: client.IsIndexing(),
 	}
 
 	b, err := json.Marshal(result)
@@ -852,8 +882,9 @@ func GetAllDiagnosticsJSON(ctx context.Context, clients []*lsp.Client, limit int
 	}
 
 	result := JSONDiagnosticsResult{
-		Files: allFiles,
-		Total: total,
+		Files:    allFiles,
+		Total:    total,
+		Indexing: anyClientIndexing(clients),
 	}
 
 	b, err := json.Marshal(result)
@@ -919,7 +950,8 @@ func GetAllDiagnosticDiffsJSON(ctx context.Context, clients []*lsp.Client, limit
 	}
 
 	result := JSONDiagnosticDiffResult{
-		Files: allFiles,
+		Files:    allFiles,
+		Indexing: anyClientIndexing(clients),
 	}
 
 	b, err := json.Marshal(result)
@@ -933,6 +965,7 @@ func GetAllDiagnosticDiffsJSON(ctx context.Context, clients []*lsp.Client, limit
 func GetDiagnosticsForFilesJSON(ctx context.Context, router *lsp.Router, filePaths []string, limit int, showDiff bool, filter DiagnosticFilter) (string, error) {
 	if showDiff {
 		var allFiles []JSONFileDiagnosticDiff
+		anyIndexing := false
 		for _, fp := range filePaths {
 			client, err := router.ClientForFile(ctx, fp)
 			if err != nil {
@@ -943,6 +976,10 @@ func GetDiagnosticsForFilesJSON(ctx context.Context, router *lsp.Router, filePat
 					Error:    err.Error(),
 				})
 				continue
+			}
+
+			if client.IsIndexing() {
+				anyIndexing = true
 			}
 
 			uri, _, err := syncAndFetchDiagnostics(ctx, client, fp)
@@ -995,7 +1032,7 @@ func GetDiagnosticsForFilesJSON(ctx context.Context, router *lsp.Router, filePat
 		if allFiles == nil {
 			allFiles = []JSONFileDiagnosticDiff{}
 		}
-		result := JSONDiagnosticDiffResult{Files: allFiles}
+		result := JSONDiagnosticDiffResult{Files: allFiles, Indexing: anyIndexing}
 		b, err := json.Marshal(result)
 		if err != nil {
 			return "", fmt.Errorf("failed to marshal JSON: %v", err)
@@ -1006,6 +1043,7 @@ func GetDiagnosticsForFilesJSON(ctx context.Context, router *lsp.Router, filePat
 	// Non-diff mode
 	var allFiles []JSONFileDiagnostics
 	total := 0
+	anyIndexing := false
 
 	for _, fp := range filePaths {
 		client, err := router.ClientForFile(ctx, fp)
@@ -1016,6 +1054,10 @@ func GetDiagnosticsForFilesJSON(ctx context.Context, router *lsp.Router, filePat
 				Error:       err.Error(),
 			})
 			continue
+		}
+
+		if client.IsIndexing() {
+			anyIndexing = true
 		}
 
 		uri, diagnostics, err := syncAndFetchDiagnostics(ctx, client, fp)
@@ -1058,8 +1100,9 @@ func GetDiagnosticsForFilesJSON(ctx context.Context, router *lsp.Router, filePat
 	}
 
 	result := JSONDiagnosticsResult{
-		Files: allFiles,
-		Total: total,
+		Files:    allFiles,
+		Total:    total,
+		Indexing: anyIndexing,
 	}
 
 	b, err := json.Marshal(result)

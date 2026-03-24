@@ -14,19 +14,10 @@ At: L4:C3, L20:C16
  8|  SharedEnum
  9|} from './helper';
 ...
-12|export function AnotherConsumerFunction(): void {
-...
-15|
-16|  // Using SharedClass differently
-17|  const instance = new SharedClass("another instance");
-18|
-19|  // Using SharedInterface
 20|  const iface: SharedInterface = {
 21|    getName: () => "custom implementation",
 22|    getValue: () => 100
 23|  };
-24|
-25|  // Using SharedType
 
 
 consumer.ts
@@ -43,19 +34,7 @@ At: L4:C3, L21:C16
  8|  SharedEnum
  9|} from './helper';
 ...
-12|export function ConsumerFunction(): void {
-...
-16|  const instance = new SharedClass("test instance");
-17|  console.log(instance.getName());
-18|  instance.helperMethod();
-19|
-20|  // Using SharedInterface
 21|  const iface: SharedInterface = instance;
-22|  console.log(iface.getName());
-23|  console.log(iface.getValue());
-24|
-25|  // Using SharedType
-26|  const value: SharedType = "string value";
 
 
 helper.ts

@@ -71,7 +71,7 @@ func formatSymbolInformation(sb *strings.Builder, sym *protocol.SymbolInformatio
 }
 
 // SearchWorkspaceSymbols searches for symbols across the workspace by name.
-func SearchWorkspaceSymbols(ctx context.Context, client *lsp.Client, query string, limit int) (string, error) {
+func SearchWorkspaceSymbols(ctx context.Context, client *lsp.Client, query string, limit, offset int) (string, error) {
 	symbolResult, err := client.Symbol(ctx, protocol.WorkspaceSymbolParams{
 		Query: query,
 	})
@@ -88,8 +88,19 @@ func SearchWorkspaceSymbols(ctx context.Context, client *lsp.Client, query strin
 		return fmt.Sprintf("No workspace symbols matching '%s'", query), nil
 	}
 
-	// Apply limit
 	total := len(results)
+
+	// Apply offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > 0 && offset < len(results) {
+		results = results[offset:]
+	} else if offset >= len(results) {
+		return fmt.Sprintf("No more symbols (offset %d exceeds total %d)", offset, total), nil
+	}
+
+	// Apply limit
 	if limit > 0 && len(results) > limit {
 		results = results[:limit]
 	}
@@ -121,8 +132,9 @@ func SearchWorkspaceSymbols(ctx context.Context, client *lsp.Client, query strin
 		sb.WriteString(fmt.Sprintf("  %s %s%s — %s:%d\n", kind, container, name, filePath, line))
 	}
 
-	if limit > 0 && total > limit {
-		sb.WriteString(fmt.Sprintf("\nShowing %d of %d symbols\n", limit, total))
+	if limit > 0 && total > offset+limit {
+		sb.WriteString(fmt.Sprintf("\nShowing %d of %d symbols (offset %d). Use offset=%d to see more.\n",
+			len(results), total, offset, offset+limit))
 	} else {
 		sb.WriteString(fmt.Sprintf("\nFound %d symbols\n", total))
 	}

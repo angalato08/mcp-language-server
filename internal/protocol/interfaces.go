@@ -127,9 +127,13 @@ func (r Or_Result_textDocument_definition) Locations() ([]Location, error) {
 	case []DefinitionLink:
 		results := make([]Location, len(v))
 		for i, link := range v {
+			r := link.TargetSelectionRange
+			if r.Start.Line == 0 && r.Start.Character == 0 && r.End.Line == 0 && r.End.Character == 0 {
+				r = link.TargetRange
+			}
 			results[i] = Location{
 				URI:   link.TargetURI,
-				Range: link.TargetRange,
+				Range: r,
 			}
 		}
 		return results, nil
@@ -149,9 +153,13 @@ func (r Or_Result_textDocument_typeDefinition) Locations() ([]Location, error) {
 	case []DefinitionLink:
 		results := make([]Location, len(v))
 		for i, link := range v {
+			r := link.TargetSelectionRange
+			if r.Start.Line == 0 && r.Start.Character == 0 && r.End.Line == 0 && r.End.Character == 0 {
+				r = link.TargetRange
+			}
 			results[i] = Location{
 				URI:   link.TargetURI,
-				Range: link.TargetRange,
+				Range: r,
 			}
 		}
 		return results, nil
@@ -171,9 +179,13 @@ func (r Or_Result_textDocument_implementation) Locations() ([]Location, error) {
 	case []DefinitionLink:
 		results := make([]Location, len(v))
 		for i, link := range v {
+			r := link.TargetSelectionRange
+			if r.Start.Line == 0 && r.Start.Character == 0 && r.End.Line == 0 && r.End.Character == 0 {
+				r = link.TargetRange
+			}
 			results[i] = Location{
 				URI:   link.TargetURI,
-				Range: link.TargetRange,
+				Range: r,
 			}
 		}
 		return results, nil

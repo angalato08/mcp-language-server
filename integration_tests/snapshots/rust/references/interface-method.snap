@@ -4,14 +4,9 @@ src/types.rs
 References in File: 1
 At: L40:C8
 
-38|// Implementation of TestInterface for TestStruct
-39|impl TestInterface for TestStruct {
 40|    fn get_name(&self) -> String {
 41|        self.name.clone()
 42|    }
-43|
-44|    fn get_value(&self) -> i32 {
-45|        self.value
 
 
 src/consumer.rs
@@ -37,8 +32,6 @@ src/types.rs
 References in File: 1
 At: L71:C8
 
-70|impl SharedInterface for SharedStruct {
 71|    fn get_name(&self) -> String {
 72|        self.name.clone()
 73|    }
-74|}

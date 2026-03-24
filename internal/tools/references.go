@@ -12,7 +12,7 @@ import (
 	"github.com/angalato08/mcp-language-server/internal/protocol"
 )
 
-func FindReferences(ctx context.Context, client *lsp.Client, symbolName string, limit int) (string, error) {
+func FindReferences(ctx context.Context, client *lsp.Client, symbolName string, limit, offset int, outputFormat string) (string, error) {
 	// First get the symbol location like ReadDefinition does
 	symbolResult, err := client.Symbol(ctx, protocol.WorkspaceSymbolParams{
 		Query: symbolName,
@@ -84,7 +84,11 @@ func FindReferences(ctx context.Context, client *lsp.Client, symbolName string, 
 			return "", fmt.Errorf("failed to get references: %v", err)
 		}
 
-		formatted, err := formatReferences(ctx, client, refs, limit)
+		if len(refs) == 0 {
+			continue
+		}
+
+		formatted, err := formatReferences(ctx, client, refs, limit, offset, outputFormat)
 		if err != nil {
 			return "", err
 		}
@@ -100,7 +104,7 @@ func FindReferences(ctx context.Context, client *lsp.Client, symbolName string, 
 	return strings.Join(allReferences, "\n"), nil
 }
 
-func FindReferencesAtPosition(ctx context.Context, client *lsp.Client, filePath string, line, column int, limit int) (string, error) {
+func FindReferencesAtPosition(ctx context.Context, client *lsp.Client, filePath string, line, column, limit, offset int, outputFormat string) (string, error) {
 	// Open the file if not already open
 	err := client.OpenFile(ctx, filePath)
 	if err != nil {
@@ -131,10 +135,10 @@ func FindReferencesAtPosition(ctx context.Context, client *lsp.Client, filePath 
 		return "No references found at this position", nil
 	}
 
-	return formatReferences(ctx, client, refs, limit)
+	return formatReferences(ctx, client, refs, limit, offset, outputFormat)
 }
 
-func formatReferences(ctx context.Context, client *lsp.Client, refs []protocol.Location, limit int) (string, error) {
+func formatReferences(ctx context.Context, client *lsp.Client, refs []protocol.Location, limit, offset int, outputFormat string) (string, error) {
 	// Get context lines from environment variable
 	contextLines := 5
 	if envLines := os.Getenv("LSP_CONTEXT_LINES"); envLines != "" {
@@ -145,9 +149,23 @@ func formatReferences(ctx context.Context, client *lsp.Client, refs []protocol.L
 
 	totalRefCount := len(refs)
 
-	// Apply limit if specified
+	// Apply offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > 0 && offset < len(refs) {
+		refs = refs[offset:]
+	} else if offset >= len(refs) {
+		return fmt.Sprintf("No more references (offset %d exceeds total %d)", offset, totalRefCount), nil
+	}
+
+	// Apply limit
 	if limit > 0 && len(refs) > limit {
 		refs = refs[:limit]
+	}
+
+	if outputFormat == "short" {
+		return formatReferencesShort(refs, totalRefCount, limit, offset), nil
 	}
 
 	// Group references by file
@@ -165,8 +183,9 @@ func formatReferences(ctx context.Context, client *lsp.Client, refs []protocol.L
 
 	var allReferences []string
 	// Prepend limit notice if results were truncated
-	if limit > 0 && totalRefCount > limit {
-		allReferences = append(allReferences, fmt.Sprintf("Showing %d of %d references", limit, totalRefCount))
+	if limit > 0 && totalRefCount > offset+limit {
+		allReferences = append(allReferences, fmt.Sprintf("Showing %d of %d references (offset %d). Use offset=%d to see more.",
+			len(refs), totalRefCount, offset, offset+limit))
 	}
 
 	// Process each file's references in sorted order
@@ -223,4 +242,46 @@ func formatReferences(ctx context.Context, client *lsp.Client, refs []protocol.L
 	}
 
 	return strings.Join(allReferences, "\n"), nil
+}
+
+func formatReferencesShort(refs []protocol.Location, totalRefCount, limit, offset int) string {
+	// Group references by file
+	type fileEntry struct {
+		path  string
+		lines []int
+	}
+	fileOrder := []string{}
+	fileMap := make(map[string]*fileEntry)
+
+	for _, ref := range refs {
+		absPath := strings.TrimPrefix(string(ref.URI), "file://")
+		displayPath := RelativePath(absPath)
+		entry, exists := fileMap[displayPath]
+		if !exists {
+			entry = &fileEntry{path: displayPath}
+			fileMap[displayPath] = entry
+			fileOrder = append(fileOrder, displayPath)
+		}
+		entry.lines = append(entry.lines, int(ref.Range.Start.Line)+1)
+	}
+
+	sort.Strings(fileOrder)
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("%d references in %d files:\n", totalRefCount, len(fileOrder)))
+
+	for _, path := range fileOrder {
+		entry := fileMap[path]
+		lineStrs := make([]string, len(entry.lines))
+		for i, l := range entry.lines {
+			lineStrs[i] = fmt.Sprintf("L%d", l)
+		}
+		b.WriteString(fmt.Sprintf("  %s: %s (%d refs)\n", path, strings.Join(lineStrs, ", "), len(entry.lines)))
+	}
+
+	if limit > 0 && totalRefCount > offset+limit {
+		b.WriteString(fmt.Sprintf("Use offset=%d to see more.\n", offset+limit))
+	}
+
+	return b.String()
 }

@@ -55,9 +55,17 @@ type Client struct {
 	activeProgress map[string]*ProgressInfo // token → info
 	progressMu     sync.RWMutex
 
+	// Semantic token legend from server capabilities
+	semanticTokenLegend *protocol.SemanticTokensLegend
+
 	// Closed when handleMessages exits (LSP process died)
 	done     chan struct{}
 	doneOnce sync.Once
+}
+
+// SemanticTokenLegend returns the semantic token legend from the server's initialize result.
+func (c *Client) SemanticTokenLegend() *protocol.SemanticTokensLegend {
+	return c.semanticTokenLegend
 }
 
 // ProgressInfo tracks a single work-done progress operation.
@@ -255,6 +263,16 @@ func (c *Client) InitializeLSPClient(ctx context.Context, workspaceDir string) (
 	var result protocol.InitializeResult
 	if err := c.Call(ctx, "initialize", initParams, &result); err != nil {
 		return nil, fmt.Errorf("initialize failed: %w", err)
+	}
+
+	// Extract semantic token legend from server capabilities
+	if result.Capabilities.SemanticTokensProvider != nil {
+		if raw, err := json.Marshal(result.Capabilities.SemanticTokensProvider); err == nil {
+			var opts protocol.SemanticTokensOptions
+			if err := json.Unmarshal(raw, &opts); err == nil {
+				c.semanticTokenLegend = &opts.Legend
+			}
+		}
 	}
 
 	if err := c.Notify(ctx, "initialized", struct{}{}); err != nil {

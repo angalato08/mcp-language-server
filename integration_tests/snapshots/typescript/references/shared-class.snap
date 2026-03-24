@@ -15,17 +15,7 @@ At: L5:C3, L17:C24
  9|} from './helper';
 10|
 ...
-12|export function AnotherConsumerFunction(): void {
-13|  const result = SharedFunction();
-14|  console.log(`Result from shared function: ${result}`);
-15|
-16|  // Using SharedClass differently
 17|  const instance = new SharedClass("another instance");
-18|
-19|  // Using SharedInterface
-20|  const iface: SharedInterface = {
-21|    getName: () => "custom implementation",
-22|    getValue: () => 100
 
 
 consumer.ts
@@ -43,13 +33,4 @@ At: L5:C3, L16:C24
  9|} from './helper';
 10|
 ...
-12|export function ConsumerFunction(): void {
-13|  console.log("Consumer calling:", SharedFunction());
-14|
-15|  // Using SharedClass
 16|  const instance = new SharedClass("test instance");
-17|  console.log(instance.getName());
-18|  instance.helperMethod();
-19|
-20|  // Using SharedInterface
-21|  const iface: SharedInterface = instance;

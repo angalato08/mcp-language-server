@@ -12,8 +12,6 @@ ERROR at L51:C19: Expression of type "Literal[123]" cannot be assigned to declar
 30|    """
 31|    return 42  # Type error: Incompatible return value type (got "int", expected "str")
 ...
-34|class ErrorClass:
-...
 45|    def method_with_undefined_variable(self) -> None:
 46|        """A method that uses an undefined variable."""
 47|        print(undefined_variable)  # Error: undefined_variable is not defined

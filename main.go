@@ -26,6 +26,47 @@ var version = "dev"
 // Create a logger for the core component
 var coreLogger = logging.NewLogger(logging.Core)
 
+const serverInstructions = `MCP Language Server — Tool Usage Guide
+
+This server provides IDE-quality code intelligence via Language Server Protocol (LSP). Use these tools as your primary means of understanding and navigating code — they are faster and more accurate than reading raw files.
+
+## Recommended Workflows
+
+### Understanding a file's API
+Use api_overview for a complete view of all symbols with signatures and docs in a single call:
+  api_overview(filePath) → signatures + docs for every symbol
+
+This replaces the pattern of document_symbols → hover → hover → hover...
+
+Only fall back to document_symbols + individual hover calls if you need hover info for just 1-2 specific symbols.
+
+### Understanding a specific symbol
+1. hover(filePath, line, column) → type signature + documentation
+2. get_definition(filePath, line, column) → jump to source code
+3. get_references(filePath, line, column) → find all usages
+
+### Finding symbols across the project
+1. workspace_symbols(query) → search by name
+2. definition(symbolName) → read source of a known symbol
+3. references(symbolName) → find all usages of a known symbol
+
+### Understanding call flow
+1. incoming_calls → who calls this function?
+2. outgoing_calls → what does this function call?
+3. dependency_graph → visualize multi-level call chains
+
+### Batch operations
+Use batch_hover when you need hover info for multiple positions in the same file — it runs concurrently and is much more efficient than sequential hover calls.
+
+### After editing code
+Always call diagnostics(filePath) after modifying a file to catch errors immediately.
+
+## Key Principles
+- Prefer position-based tools (get_definition, get_references, hover) when you already have file + line + column
+- Prefer name-based tools (definition, references, workspace_symbols) when you only know the symbol name
+- Use api_overview as the first step when exploring an unfamiliar file
+- Use short output format for references/calls when you only need locations, not code context`
+
 // stringSlice implements flag.Value for multi-value --lsp flags.
 type stringSlice []string
 
@@ -165,6 +206,7 @@ func (s *mcpServer) start() error {
 		version,
 		server.WithLogging(),
 		server.WithRecovery(),
+		server.WithInstructions(serverInstructions),
 	)
 
 	err := s.registerTools()
