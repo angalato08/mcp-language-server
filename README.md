@@ -13,15 +13,52 @@ This is an [MCP](https://modelcontextprotocol.io/introduction) server that runs 
 
 ![Demo](demo.gif)
 
+## Installation
+
+### Option 1: Install script (recommended)
+
+Downloads the latest pre-built binary for your platform. No dependencies required.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/angalato08/mcp-language-server/main/install.sh | sh
+```
+
+The binary is installed to `~/.local/bin/` by default. Override with `INSTALL_DIR`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/angalato08/mcp-language-server/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+```
+
+### Option 2: Go install
+
+If you have Go installed:
+
+```bash
+go install github.com/angalato08/mcp-language-server@latest
+```
+
 ## Setup
 
-1. **Install Go**: Follow instructions at <https://golang.org/doc/install>
-2. **Install or update this server**: `go install github.com/angalato08/mcp-language-server@latest`
-3. **Install language servers**: Install the LSP(s) for the languages you use in your project.
-4. **Configure your MCP client**: _follow one of the guides below_
+1. **Install language servers** for the languages you use in your project (see language-specific guides below).
+2. **Configure your MCP client** with the config below.
 
-The server supports running multiple LSPs simultaneously for polyglot repositories. You can pass the `--lsp` flag multiple times. The flag supports two syntaxes:
-- **Auto-detect**: Just pass the command (e.g., `--lsp gopls`). The server will auto-detect well-known language servers.
+The server **auto-detects** which languages are in your workspace and starts the appropriate LSP servers automatically. No `--lsp` flag needed:
+
+```json
+{
+  "mcpServers": {
+    "language-server": {
+      "command": "mcp-language-server",
+      "args": ["-workspace", "/path/to/your/project"]
+    }
+  }
+}
+```
+
+That's it. The server will scan your workspace, detect source files, and start the matching LSP servers (gopls, rust-analyzer, pyright, typescript-language-server, clangd, marksman) if they're installed.
+
+You can override auto-detection with explicit `--lsp` flags if needed. The flag supports two syntaxes:
+- **Auto-detect**: Just pass the command (e.g., `--lsp gopls`).
 - **Explicit**: Pass `languageID:command` (e.g., `--lsp python:pyright-langserver`).
 
 <details>
