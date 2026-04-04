@@ -139,6 +139,8 @@ var lspNormalizers = []struct {
 	{regexp.MustCompile(`(?:github\.com/[^/]+/[^/]+/)integration_tests/test-output/\w+/workspace`), "<module>/workspace"},
 	// Pyright error codes change between versions (e.g., reportGeneralTypeIssues → reportReturnType)
 	{regexp.MustCompile(`Code: report\w+`), "Code: <pyright-code>"},
+	// Indexing warning may appear on slow CI environments
+	{regexp.MustCompile(`(?m)^WARNING: Language server is still indexing\.[^\n]*\n`), ""},
 	// Pyright type error messages change wording between versions
 	// e.g., "cannot be assigned to" → "is not assignable to", "is incompatible with" → "is not assignable to"
 	{regexp.MustCompile(`cannot be assigned to`), "is not assignable to"},

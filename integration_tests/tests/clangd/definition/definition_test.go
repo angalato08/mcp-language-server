@@ -179,7 +179,7 @@ func TestGetDefinitionAtPosition(t *testing.T) {
 	// Explicitly open files to trigger indexing
 	filesToOpen := []string{"src/main.cpp", "src/helper.cpp", "src/consumer.cpp"}
 	for _, f := range filesToOpen {
-		suite.Client.OpenFile(suite.Context, filepath.Join(suite.WorkspaceDir, f))
+		_ = suite.Client.OpenFile(suite.Context, filepath.Join(suite.WorkspaceDir, f))
 	}
 
 	// Wait for indexing
