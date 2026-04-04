@@ -3,7 +3,7 @@
 Symbol: TestConstant
 File: clean.go
 Kind: Constant
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L25:C1 - L25:C38
 
 25|const TestConstant = "constant value"

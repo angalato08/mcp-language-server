@@ -3,7 +3,7 @@
 Symbol: TestFunction
 File: clean.go
 Kind: Function
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L31:C1 - L33:C2
 
 31|func TestFunction() {

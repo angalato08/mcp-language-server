@@ -3,7 +3,7 @@
 Symbol: FooBar
 File: main.go
 Kind: Function
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L6:C1 - L10:C2
 
  6|func FooBar() string {

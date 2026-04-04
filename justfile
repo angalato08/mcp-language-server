@@ -20,7 +20,6 @@ generate:
 
 # Run code audit checks
 check:
-  gofmt -l . | grep -v integration_tests/workspaces/ | grep -v integration_tests/test-output/
   test -z "$(gofmt -l . | grep -v integration_tests/workspaces/ | grep -v integration_tests/test-output/)"
   go tool staticcheck ./...
   go tool errcheck ./...

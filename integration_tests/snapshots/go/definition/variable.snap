@@ -3,7 +3,7 @@
 Symbol: TestVariable
 File: clean.go
 Kind: Variable
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L28:C1 - L28:C22
 
 28|var TestVariable = 42

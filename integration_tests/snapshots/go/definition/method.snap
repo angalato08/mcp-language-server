@@ -3,7 +3,7 @@
 Symbol: TestStruct.Method
 File: clean.go
 Kind: Method
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L12:C1 - L14:C2
 
 12|func (t *TestStruct) Method() string {

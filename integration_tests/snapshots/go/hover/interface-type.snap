@@ -8,4 +8,4 @@ SharedInterface defines behavior implemented across files
 
 
 
-[`main.SharedInterface` on pkg.go.dev](https://pkg.go.dev/github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace#SharedInterface)
+[`main.SharedInterface` on pkg.go.dev](https://pkg.go.dev/<module>/workspace#SharedInterface)

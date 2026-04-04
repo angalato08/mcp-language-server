@@ -3,7 +3,7 @@
 Symbol: TestInterface
 File: clean.go
 Kind: Interface
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L17:C1 - L19:C2
 
 17|type TestInterface interface {

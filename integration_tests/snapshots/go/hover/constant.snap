@@ -5,4 +5,4 @@ SharedConstant is used in multiple files
 
 
 
-[`main.SharedConstant` on pkg.go.dev](https://pkg.go.dev/github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace#SharedConstant)
+[`main.SharedConstant` on pkg.go.dev](https://pkg.go.dev/<module>/workspace#SharedConstant)

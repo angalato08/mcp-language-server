@@ -3,7 +3,7 @@
 Symbol: TestStruct
 File: clean.go
 Kind: Struct
-Container Name: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace
+Container Name: <module>/workspace
 Range: L6:C1 - L9:C2
 
  6|type TestStruct struct {
