@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,19 +37,21 @@ func TestRestartableClientDelegationWithNilClient(t *testing.T) {
 
 	assert.False(t, rc.IsFileOpen("/test.go"))
 
-	err := rc.OpenFile(nil, "/test.go")
+	ctx := context.TODO()
+
+	err := rc.OpenFile(ctx, "/test.go")
 	assert.ErrorIs(t, err, ErrServerRestarting)
 
-	err = rc.NotifyChange(nil, "/test.go")
+	err = rc.NotifyChange(ctx, "/test.go")
 	assert.ErrorIs(t, err, ErrServerRestarting)
 
-	err = rc.Shutdown(nil)
+	err = rc.Shutdown(ctx)
 	assert.ErrorIs(t, err, ErrServerRestarting)
 
-	err = rc.Exit(nil)
+	err = rc.Exit(ctx)
 	assert.ErrorIs(t, err, ErrServerRestarting)
 
-	err = rc.WaitForServerReady(nil)
+	err = rc.WaitForServerReady(ctx)
 	assert.ErrorIs(t, err, ErrServerRestarting)
 }
 
