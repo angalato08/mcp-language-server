@@ -215,6 +215,7 @@ func (s *mcpServer) start() error {
 		server.WithLogging(),
 		server.WithRecovery(),
 		server.WithInstructions(serverInstructions),
+		server.WithToolCapabilities(true),
 	)
 
 	err := s.registerTools()
