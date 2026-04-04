@@ -9,6 +9,7 @@ import (
 	"github.com/angalato08/mcp-language-server/internal/tools"
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
 func parseSeverity(s string) protocol.DiagnosticSeverity {
 	switch strings.ToLower(s) {
 	case "error":

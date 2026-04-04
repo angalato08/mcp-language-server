@@ -6,11 +6,11 @@ Outgoing calls from: entry_point (Function)
    Call sites: 1 [L17:C11]
 
 2. print (Function)
-   File: ../../../../../../../../../../usr/lib/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+   File: <system>/usr/lib/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
    Range: L1644:C5 - L1644:C10
    Call sites: 1 [L18:C5]
 
 3. print (Function)
-   File: ../../../../../../../../../../usr/lib/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
+   File: <system>/usr/lib/node_modules/pyright/dist/typeshed-fallback/stdlib/builtins.pyi
    Range: L1652:C5 - L1652:C10
    Call sites: 1 [L18:C5]

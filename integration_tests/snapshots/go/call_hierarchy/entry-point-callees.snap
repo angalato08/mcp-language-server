@@ -1,13 +1,13 @@
 Outgoing calls from: EntryPoint (Function)
 
 1. MiddleFunction (Function)
-   Detail: github.com/angalato08/mcp-language-server/integration_tests/test-output/go/workspace • callchain.go
+   Detail: <module>/workspace • callchain.go
    File: callchain.go
    Range: L11:C6 - L11:C20
    Call sites: 1 [L18:C9]
 
 2. Println (Function)
    Detail: fmt • print.go
-   File: ../../../../../../../../../../usr/local/go/src/fmt/print.go
+   File: <system>/usr/local/go/src/fmt/print.go
    Range: L313:C6 - L313:C13
    Call sites: 1 [L19:C6]

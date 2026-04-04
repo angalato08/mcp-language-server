@@ -248,12 +248,12 @@ func TestCollectFilesFromDirectory(t *testing.T) {
 	mkFile("lib/deep/nested.ts")
 
 	// Create files that should be excluded
-	mkFile("build/out.go")       // excluded dir
-	mkFile("node_modules/x.js")  // excluded dir
-	mkFile(".hidden/secret.go")  // dot-dir
-	mkFile("data/file.log")      // excluded extension
-	mkFile("images/pic.png")     // large binary extension
-	mkFile("readme.txt")         // no LSP support
+	mkFile("build/out.go")      // excluded dir
+	mkFile("node_modules/x.js") // excluded dir
+	mkFile(".hidden/secret.go") // dot-dir
+	mkFile("data/file.log")     // excluded extension
+	mkFile("images/pic.png")    // large binary extension
+	mkFile("readme.txt")        // no LSP support
 
 	files, err := CollectFilesFromDirectory(tmp)
 	if err != nil {

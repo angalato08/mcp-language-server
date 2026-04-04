@@ -22,7 +22,7 @@ func GetTestSuite(t *testing.T) *common.TestSuite {
 		Command:          "rust-analyzer",
 		Args:             []string{},
 		WorkspaceDir:     filepath.Join(repoRoot, "integration_tests/workspaces/rust"),
-		InitializeTimeMs: 3000,
+		InitializeTimeMs: 5000,
 	}
 
 	// Create a test suite

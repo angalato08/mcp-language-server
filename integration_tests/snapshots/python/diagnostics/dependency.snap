@@ -1,6 +1,6 @@
 consumer_clean.py
 Diagnostics in File: 1
-ERROR at L9:C15: Argument missing for parameter "age" (Source: Pyright, Code: reportGeneralTypeIssues)
+ERROR at L9:C15: Argument missing for parameter "age" (Source: Pyright, Code: <pyright-code>)
 
  7|    """Function that consumes the helper functions."""
  8|    # Use the helper function

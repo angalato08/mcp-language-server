@@ -702,7 +702,6 @@ func (c *Client) GetAllDiagnosticDiffs() map[protocol.DocumentUri]*DiagnosticDif
 	return result
 }
 
-
 // ComputeDiagnosticDiff is a pure function that computes the diff between two diagnostic slices.
 // New diagnostics are those in current but not in previous; resolved are in previous but not in current.
 // Key: (Range.Start.Line, Range.Start.Character, Message, Code, Source)

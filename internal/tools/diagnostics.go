@@ -773,10 +773,10 @@ func GetDiagnosticDiffForFileJSON(ctx context.Context, client *lsp.Client, fileP
 	if err != nil {
 		result := JSONDiagnosticDiffResult{
 			Files: []JSONFileDiagnosticDiff{{
-				File:  RelativePath(filePath),
-				New:   []JSONDiagnostic{},
+				File:     RelativePath(filePath),
+				New:      []JSONDiagnostic{},
 				Resolved: []JSONDiagnostic{},
-				Error: err.Error(),
+				Error:    err.Error(),
 			}},
 		}
 		b, _ := json.Marshal(result)

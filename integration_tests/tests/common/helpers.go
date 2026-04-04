@@ -132,6 +132,13 @@ var lspNormalizers = []struct {
 	{regexp.MustCompile(`&nbsp;`), " "},
 	// Separators (some use ---, some use horizontal rules)
 	{regexp.MustCompile(`\n---\n`), "\n"},
+	// Relative paths to system libraries: ../../../../../../usr/... → <system>/usr/...
+	// The number of ../ segments varies with workspace directory depth
+	{regexp.MustCompile(`(?:\.\./){2,}((?:usr|opt|nix|snap)/\S+)`), "<system>/$1"},
+	// Module paths in Detail fields that contain test-output paths
+	{regexp.MustCompile(`(?:github\.com/[^/]+/[^/]+/)integration_tests/test-output/\w+/workspace`), "<module>/workspace"},
+	// Pyright error codes change between versions (e.g., reportGeneralTypeIssues → reportReturnType)
+	{regexp.MustCompile(`Code: report\w+`), "Code: <pyright-code>"},
 }
 
 // normalizeOutput applies all normalizations to make snapshots resilient to
