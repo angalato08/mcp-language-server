@@ -86,10 +86,10 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 	t.Run("ignores unsupported languages", func(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "style.css"), []byte("body {}"), 0644)
-		os.WriteFile(filepath.Join(dir, "README.md"), []byte("# hi"), 0644)
+		os.WriteFile(filepath.Join(dir, "data.json"), []byte("{}"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
-		assert.Empty(t, langs) // css and markdown have no known LSP servers in our registry
+		assert.Empty(t, langs) // css and json have no known LSP servers in our registry
 	})
 }
 

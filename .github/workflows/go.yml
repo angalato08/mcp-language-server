@@ -53,7 +53,7 @@ jobs:
         run: go install golang.org/x/tools/gopls@latest
 
       - name: Run Go integration tests
-        run: go test ./integrationtests/tests/go/...
+        run: go test ./integration_tests/tests/go/...
 
   python-integration-tests:
     name: Python Integration Tests
@@ -77,7 +77,7 @@ jobs:
         run: npm install -g pyright
 
       - name: Run Python integration tests
-        run: go test ./integrationtests/tests/python/...
+        run: go test ./integration_tests/tests/python/...
 
   rust-integration-tests:
     name: Rust Integration Tests
@@ -106,7 +106,7 @@ jobs:
       - run: rust-analyzer --version
 
       - name: Run Rust integration tests
-        run: go test ./integrationtests/tests/rust/...
+        run: go test ./integration_tests/tests/rust/...
 
   typescript-integration-tests:
     name: TypeScript Integration Tests
@@ -130,7 +130,7 @@ jobs:
         run: npm install -g typescript typescript-language-server
 
       - name: Run TypeScript integration tests
-        run: go test ./integrationtests/tests/typescript/...
+        run: go test ./integration_tests/tests/typescript/...
 
   clangd-integration-tests:
     name: Clangd Integration Tests
@@ -158,12 +158,12 @@ jobs:
       
       - name: Create compile commands
         run: |
-          cd integrationtests/workspaces/clangd
+          cd integration_tests/workspaces/clangd
           bear -- make
           cd ../../../..
 
       - name: Run Clangd definition tests
-        run: go test ./integrationtests/tests/clangd/definition...
+        run: go test ./integration_tests/tests/clangd/definition...
 
       - name: Run Clangd diagnostics tests
-        run: go test ./integrationtests/tests/clangd/diagnostics...
+        run: go test ./integration_tests/tests/clangd/diagnostics...
