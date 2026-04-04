@@ -1,10 +1,10 @@
 error_file.py
 Diagnostics in File: 3
-ERROR at L31:C12: Expression of type "Literal[42]" cannot be assigned to return type "str"
-  "Literal[42]" is incompatible with "str" (Source: Pyright, Code: <pyright-code>)
+ERROR at L31:C12: Type "Literal[42]" is not assignable to return type "str"
+  "Literal[42]" is not assignable to "str" (Source: Pyright, Code: <pyright-code>)
 ERROR at L47:C15: "undefined_variable" is not defined (Source: Pyright, Code: <pyright-code>)
-ERROR at L51:C19: Expression of type "Literal[123]" cannot be assigned to declared type "str"
-  "Literal[123]" is incompatible with "str" (Source: Pyright, Code: <pyright-code>)
+ERROR at L51:C19: Type "Literal[123]" is not assignable to declared type "str"
+  "Literal[123]" is not assignable to "str" (Source: Pyright, Code: <pyright-code>)
 
 25|def function_with_type_error() -> str:
 ...

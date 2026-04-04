@@ -139,6 +139,11 @@ var lspNormalizers = []struct {
 	{regexp.MustCompile(`(?:github\.com/[^/]+/[^/]+/)integration_tests/test-output/\w+/workspace`), "<module>/workspace"},
 	// Pyright error codes change between versions (e.g., reportGeneralTypeIssues → reportReturnType)
 	{regexp.MustCompile(`Code: report\w+`), "Code: <pyright-code>"},
+	// Pyright type error messages change wording between versions
+	// e.g., "cannot be assigned to" → "is not assignable to", "is incompatible with" → "is not assignable to"
+	{regexp.MustCompile(`cannot be assigned to`), "is not assignable to"},
+	{regexp.MustCompile(`is incompatible with`), "is not assignable to"},
+	{regexp.MustCompile(`Expression of type`), "Type"},
 	// Line/column ranges in system libraries change across versions
 	{regexp.MustCompile(`(<system-lib>\n\s+Range: )L\d+:C\d+ - L\d+:C\d+`), "${1}<system-range>"},
 }

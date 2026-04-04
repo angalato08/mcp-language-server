@@ -238,8 +238,8 @@ func TestCollectFilesFromDirectory(t *testing.T) {
 	// Create source files with supported extensions
 	mkFile := func(rel string) {
 		abs := filepath.Join(tmp, rel)
-		os.MkdirAll(filepath.Dir(abs), 0o755)
-		os.WriteFile(abs, []byte("// content"), 0o644)
+		_ = os.MkdirAll(filepath.Dir(abs), 0o755)
+		_ = os.WriteFile(abs, []byte("// content"), 0o644)
 	}
 
 	mkFile("main.go")
@@ -283,7 +283,7 @@ func TestCollectFilesFromDirectory(t *testing.T) {
 func TestCollectFilesFromDirectory_NotADir(t *testing.T) {
 	tmp := t.TempDir()
 	f := filepath.Join(tmp, "file.go")
-	os.WriteFile(f, []byte("package main"), 0o644)
+	_ = os.WriteFile(f, []byte("package main"), 0o644)
 
 	_, err := CollectFilesFromDirectory(f)
 	if err == nil {
