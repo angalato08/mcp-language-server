@@ -13,7 +13,7 @@ import (
 func TestScanWorkspaceLanguages(t *testing.T) {
 	t.Run("detects Go files", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.True(t, langs["go"])
@@ -21,9 +21,9 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 
 	t.Run("detects multiple languages", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
-		os.WriteFile(filepath.Join(dir, "lib.rs"), []byte("fn main() {}"), 0644)
-		os.WriteFile(filepath.Join(dir, "app.py"), []byte("print('hi')"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "lib.rs"), []byte("fn main() {}"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "app.py"), []byte("print('hi')"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.True(t, langs["go"])
@@ -33,7 +33,7 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 
 	t.Run("normalizes cpp to c", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.cpp"), []byte("int main() {}"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "main.cpp"), []byte("int main() {}"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.True(t, langs["c"])
@@ -42,7 +42,7 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 
 	t.Run("normalizes typescriptreact to typescript", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "App.tsx"), []byte("export default {}"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "App.tsx"), []byte("export default {}"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.True(t, langs["typescript"])
@@ -51,8 +51,8 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 	t.Run("skips excluded dirs", func(t *testing.T) {
 		dir := t.TempDir()
 		nodeModules := filepath.Join(dir, "node_modules")
-		os.MkdirAll(nodeModules, 0755)
-		os.WriteFile(filepath.Join(nodeModules, "dep.ts"), []byte(""), 0644)
+		_ = os.MkdirAll(nodeModules, 0755)
+		_ = os.WriteFile(filepath.Join(nodeModules, "dep.ts"), []byte(""), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.Empty(t, langs)
@@ -60,8 +60,8 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 
 	t.Run("skips binary extensions", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "image.png"), []byte{}, 0644)
-		os.WriteFile(filepath.Join(dir, "lib.so"), []byte{}, 0644)
+		_ = os.WriteFile(filepath.Join(dir, "image.png"), []byte{}, 0644)
+		_ = os.WriteFile(filepath.Join(dir, "lib.so"), []byte{}, 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.Empty(t, langs)
@@ -76,8 +76,8 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 	t.Run("detects files in subdirectories", func(t *testing.T) {
 		dir := t.TempDir()
 		subDir := filepath.Join(dir, "src", "pkg")
-		os.MkdirAll(subDir, 0755)
-		os.WriteFile(filepath.Join(subDir, "main.go"), []byte("package pkg"), 0644)
+		_ = os.MkdirAll(subDir, 0755)
+		_ = os.WriteFile(filepath.Join(subDir, "main.go"), []byte("package pkg"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.True(t, langs["go"])
@@ -85,8 +85,8 @@ func TestScanWorkspaceLanguages(t *testing.T) {
 
 	t.Run("ignores unsupported languages", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "style.css"), []byte("body {}"), 0644)
-		os.WriteFile(filepath.Join(dir, "data.json"), []byte("{}"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "style.css"), []byte("body {}"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "data.json"), []byte("{}"), 0644)
 
 		langs := ScanWorkspaceLanguages(dir)
 		assert.Empty(t, langs) // css and json have no known LSP servers in our registry
@@ -121,7 +121,7 @@ func TestDetectLSPConfigs(t *testing.T) {
 
 	t.Run("finds available server", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
 
 		lookPath = func(file string) (string, error) {
 			if file == "gopls" {
@@ -139,7 +139,7 @@ func TestDetectLSPConfigs(t *testing.T) {
 
 	t.Run("picks higher priority server", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "app.py"), []byte("print()"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "app.py"), []byte("print()"), 0644)
 
 		lookPath = func(file string) (string, error) {
 			// Both available — should pick pyright (priority 0)
@@ -158,7 +158,7 @@ func TestDetectLSPConfigs(t *testing.T) {
 
 	t.Run("falls back to lower priority", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "app.py"), []byte("print()"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "app.py"), []byte("print()"), 0644)
 
 		lookPath = func(file string) (string, error) {
 			if file == "pylsp" {
@@ -175,8 +175,8 @@ func TestDetectLSPConfigs(t *testing.T) {
 
 	t.Run("deduplicates same server for JS and TS", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "app.ts"), []byte(""), 0644)
-		os.WriteFile(filepath.Join(dir, "util.js"), []byte(""), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "app.ts"), []byte(""), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "util.js"), []byte(""), 0644)
 
 		lookPath = func(file string) (string, error) {
 			if file == "typescript-language-server" {
@@ -194,8 +194,8 @@ func TestDetectLSPConfigs(t *testing.T) {
 
 	t.Run("multiple languages multiple servers", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
-		os.WriteFile(filepath.Join(dir, "lib.rs"), []byte("fn main() {}"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "lib.rs"), []byte("fn main() {}"), 0644)
 
 		lookPath = func(file string) (string, error) {
 			if file == "gopls" || file == "rust-analyzer" {
@@ -223,7 +223,7 @@ func TestDetectLSPConfigs(t *testing.T) {
 
 	t.Run("error when no servers installed", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+		_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
 
 		lookPath = func(file string) (string, error) {
 			return "", exec.ErrNotFound

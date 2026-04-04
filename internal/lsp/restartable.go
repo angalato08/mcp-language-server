@@ -51,7 +51,7 @@ func (rc *RestartableClient) Start(ctx context.Context) error {
 	rc.mu.Unlock()
 
 	if _, err := client.InitializeLSPClient(rc.ctx, rc.workspaceDir); err != nil {
-		client.Close()
+		_ = client.Close()
 		return fmt.Errorf("initialize failed: %w", err)
 	}
 
@@ -205,7 +205,7 @@ func (rc *RestartableClient) Restart(ctx context.Context) error {
 	}
 
 	if _, err := newClient.InitializeLSPClient(rc.ctx, rc.workspaceDir); err != nil {
-		newClient.Close()
+		_ = newClient.Close()
 		return fmt.Errorf("failed to initialize LSP during restart: %w", err)
 	}
 
@@ -283,7 +283,7 @@ func (rc *RestartableClient) restart() {
 		// Close old client (best-effort)
 		rc.mu.Lock()
 		if rc.client != nil {
-			rc.client.Close()
+			_ = rc.client.Close()
 		}
 		rc.mu.Unlock()
 
@@ -295,7 +295,7 @@ func (rc *RestartableClient) restart() {
 
 		if _, err := client.InitializeLSPClient(rc.ctx, rc.workspaceDir); err != nil {
 			lspLogger.Error("Failed to initialize LSP during restart: %v", err)
-			client.Close()
+			_ = client.Close()
 			continue
 		}
 
