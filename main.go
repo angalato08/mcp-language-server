@@ -42,15 +42,16 @@ Only fall back to document_symbols + individual hover calls if you need hover in
 
 ### Understanding a specific symbol
 1. hover(filePath, line, column) → type signature + documentation
-2. get_definition(filePath, line, column) → jump to source code
+2. get_definition(filePath, line, column) → read the full source implementation of a symbol (returns complete function body / struct definition, not just a location)
 3. get_references(filePath, line, column) → find all usages
 
 ### Finding symbols across the project
 1. workspace_symbols(query) → search by name
-2. definition(symbolName) → read source of a known symbol
+2. definition(symbolName) → read full source of a known symbol (returns complete implementation)
 3. references(symbolName) → find all usages of a known symbol
 
 ### Understanding call flow
+These are often more useful than reading a function's implementation directly — they show the call graph in structured form without needing to parse code yourself.
 1. incoming_calls → who calls this function?
 2. outgoing_calls → what does this function call?
 3. dependency_graph → visualize multi-level call chains
@@ -61,11 +62,27 @@ Use batch_hover when you need hover info for multiple positions in the same file
 ### After editing code
 Always call diagnostics(filePath) after modifying a file to catch errors immediately.
 
+## Instead of Read/Grep, use LSP tools
+
+| Instead of...                        | Use...                                                     |
+|--------------------------------------|------------------------------------------------------------|
+| Read a whole file to understand it   | api_overview for structure + signatures                    |
+| Read to see a function's code        | get_definition for the full implementation                 |
+| Grep for a symbol name               | workspace_symbols or references                            |
+| Read to check a type/signature       | hover                                                      |
+| Read to follow function calls        | outgoing_calls                                             |
+| Read to find callers                 | incoming_calls                                             |
+
 ## Key Principles
 - Prefer position-based tools (get_definition, get_references, hover) when you already have file + line + column
 - Prefer name-based tools (definition, references, workspace_symbols) when you only know the symbol name
 - Use api_overview as the first step when exploring an unfamiliar file
-- Use short output format for references/calls when you only need locations, not code context`
+- Use short output format for references/calls when you only need locations, not code context
+
+## Troubleshooting
+- If multiple consecutive calls fail, the LSP server may be restarting — wait a moment and retry
+- If hover returns no information for a symbol, fall back to get_definition or api_overview
+- Use server_status to check whether the language server is running and healthy`
 
 // stringSlice implements flag.Value for multi-value --lsp flags.
 type stringSlice []string
